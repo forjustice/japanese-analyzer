@@ -35,10 +35,7 @@ export default function AnalysisResult({
       setIsMobile(window.innerWidth <= 768);
     };
     
-    // 初始检测
     checkIsMobile();
-    
-    // 窗口大小变化时重新检测
     window.addEventListener('resize', checkIsMobile);
     return () => {
       window.removeEventListener('resize', checkIsMobile);
@@ -49,7 +46,6 @@ export default function AnalysisResult({
     e.stopPropagation();
     const target = e.currentTarget as HTMLElement;
     
-    // 如果点击的是当前活动词，切换关闭
     if (activeWordToken === target) {
       setActiveWordToken(null);
       setWordDetail(null);
@@ -59,32 +55,26 @@ export default function AnalysisResult({
       return;
     }
 
-    // 设置新活动词
     if (activeWordToken) {
       activeWordToken.classList.remove('active-word');
     }
     target.classList.add('active-word');
     setActiveWordToken(target);
     
-    // 如果是移动端，先打开模态窗口，显示加载动画
     if (isMobile) {
       setIsLoading(true);
       setIsModalOpen(true);
-      // 然后获取词汇详情
       await fetchWordDetails(token.word, token.pos, originalSentence, token.furigana, token.romaji);
     } else {
-      // PC端保持原来的逻辑
       await fetchWordDetails(token.word, token.pos, originalSentence, token.furigana, token.romaji);
     }
   };
 
   const fetchWordDetails = async (word: string, pos: string, sentence: string, furigana?: string, romaji?: string) => {
     setIsLoading(true);
-
-          try {
-        // 使用服务端API获取词汇详情，传递用户API设置
-        const details = await getWordDetails(word, pos, sentence, furigana, romaji, userApiKey, userApiUrl);
-        setWordDetail(details);
+    try {
+      const details = await getWordDetails(word, pos, sentence, furigana, romaji, userApiKey, userApiUrl);
+      setWordDetail(details);
     } catch (error) {
       console.error('Error fetching word details:', error);
       setWordDetail({ 
@@ -110,7 +100,6 @@ export default function AnalysisResult({
     setIsModalOpen(false);
   }, [activeWordToken]);
 
-  // 点击外部关闭详情
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -131,40 +120,35 @@ export default function AnalysisResult({
     };
   }, [activeWordToken, wordDetail, handleCloseWordDetail]);
 
-  // 朗读单词的函数
   const handleWordSpeak = async (word: string) => {
     try {
-      // 词汇详解中统一使用系统TTS，速度更快
       speakJapanese(word);
     } catch (error) {
       console.error('朗读失败:', error);
     }
   };
 
-  // 格式化解释文本，支持换行和高亮
   const formatExplanation = (text: string): { __html: string } | undefined => {
     if (!text) return undefined;
-    
     const formattedText = text
       .replace(/\n/g, '<br />')
       .replace(/【([^】]+)】/g, '<strong class="text-indigo-600">$1</strong>')
       .replace(/「([^」]+)」/g, '<strong class="text-indigo-600">$1</strong>');
-
     return { __html: formattedText };
   };
 
   const handleCopy = () => {
     let contentToCopy: string;
-    let isHtml = false;
+    let isHtml = showFurigana;
 
-    if (showFurigana) {
-      isHtml = true;
+    if (isHtml) {
       contentToCopy = tokens.map(token => {
         if (token.pos === '改行') return '<br>';
         
-        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号';
+        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号';
         
-        if (shouldUseFurigana && token.furigana) { // Added token.furigana check for type safety
+        // This check is critical for type safety
+        if (shouldUseFurigana && token.furigana) { 
           return generateFuriganaParts(token.word, token.furigana)
             .map(part => part.ruby ? `<ruby>${part.base}<rt>${part.ruby}</rt></ruby>` : part.base)
             .join('');
@@ -173,7 +157,6 @@ export default function AnalysisResult({
         }
       }).join('');
     } else {
-      isHtml = false;
       contentToCopy = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
     }
 
@@ -212,7 +195,6 @@ export default function AnalysisResult({
     }
   };
 
-  // 词语详情内容组件
   const WordDetailContent = () => (
     <>
       <h3 className="text-xl font-semibold text-[#007AFF] mb-3">词汇详解</h3>
@@ -312,7 +294,7 @@ export default function AnalysisResult({
                 className={`word-token ${getPosClass(token.pos)}`}
                 onClick={(e) => handleWordClick(e, token)}
               >
-                {showFurigana && token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号'
+                {showFurigana && token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号'
                   ? generateFuriganaParts(token.word, token.furigana).map((part, i) =>
                       part.ruby ? (
                         <ruby key={i}>
@@ -326,7 +308,7 @@ export default function AnalysisResult({
                   : token.word}
               </span>
               
-              {token.romaji && token.pos !== '記号' && (
+              {token.romaji && token.pos !== '记号' && (
                 <span className="romaji-text">{token.romaji}</span>
               )}
               
@@ -338,7 +320,6 @@ export default function AnalysisResult({
         })}
       </div>
       
-      {/* 非移动端的内嵌详情展示 */}
       {!isMobile && (isLoading || wordDetail) && (
         <div id="wordDetailInlineContainer" style={{ display: 'block' }}>
           <button 
@@ -360,7 +341,6 @@ export default function AnalysisResult({
         </div>
       )}
       
-      {/* 移动端的模态窗口详情展示 */}
       {isMobile && isModalOpen && (
         <div id="wordDetailModal" className="word-detail-modal" onClick={(e) => {
           if (e.target === e.currentTarget) handleCloseWordDetail();
