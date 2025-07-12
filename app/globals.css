@@ -653,24 +653,23 @@ html.safari #japaneseInput {
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-end; /* Aligns content to the bottom */
   z-index: 1000;
-  padding: 15px;
-  animation: fadeInModal 0.2s ease;
+  animation: fadeInModal 0.3s ease;
   will-change: opacity;
 }
 
 .word-detail-modal-content {
   background-color: white;
-  border-radius: 12px;
+  border-radius: 16px 16px 0 0; /* Rounded top corners */
   padding: 20px;
   width: 100%;
   max-width: 500px;
-  max-height: 90vh;
+  height: 75vh; /* Fixed height, 75% of viewport */
   overflow-y: auto;
   position: relative;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-  animation: zoomInModal 0.2s cubic-bezier(0.165, 0.84, 0.44, 1);
+  box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.15); /* Shadow on top */
+  animation: slideUpModal 0.3s cubic-bezier(0.165, 0.84, 0.44, 1); /* New slide-up animation */
   will-change: transform, opacity;
 }
 
@@ -682,6 +681,15 @@ html.safari #japaneseInput {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes slideUpModal {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
   }
 }
 
