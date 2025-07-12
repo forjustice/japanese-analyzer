@@ -139,7 +139,7 @@ export default function AnalysisResult({
 
   const handleCopy = () => {
     let contentToCopy: string;
-    let isHtml = showFurigana;
+    const isHtml = showFurigana;
 
     if (isHtml) {
       contentToCopy = tokens.map(token => {
