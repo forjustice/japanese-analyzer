@@ -154,18 +154,17 @@ export default function AnalysisResult({
   };
 
   const handleCopy = () => {
-    let htmlContent = '';
-    let plainText = '';
+    let contentToCopy: string;
+    let isHtml = false;
 
-    // 根据 "显示假名" 开关的状态来决定复制的内容
     if (showFurigana) {
-      // 开关打开：生成带 <ruby> 标签的 HTML
-      htmlContent = tokens.map(token => {
+      isHtml = true;
+      contentToCopy = tokens.map(token => {
         if (token.pos === '改行') return '<br>';
         
-        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号';
-        if (shouldUseFurigana && token.furigana) {
-          // 使用 generateFuriganaParts 确保只为汉字部分添加 ruby 标签
+        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号';
+        
+        if (shouldUseFurigana && token.furigana) { // Added token.furigana check for type safety
           return generateFuriganaParts(token.word, token.furigana)
             .map(part => part.ruby ? `<ruby>${part.base}<rt>${part.ruby}</rt></ruby>` : part.base)
             .join('');
@@ -173,24 +172,20 @@ export default function AnalysisResult({
           return token.word;
         }
       }).join('');
-      plainText = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
     } else {
-      // 开关关闭：只生成纯文本
-      plainText = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
-      htmlContent = plainText.replace(/\n/g, '<br>');
+      isHtml = false;
+      contentToCopy = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
     }
 
-    // 执行复制操作
     try {
-      if (showFurigana) {
-        // 复制带格式的 HTML
-        const blobHtml = new Blob([htmlContent], { type: 'text/html' });
+      if (isHtml) {
+        const plainText = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
+        const blobHtml = new Blob([contentToCopy], { type: 'text/html' });
         const blobText = new Blob([plainText], { type: 'text/plain' });
         const clipboardItem = new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText });
         navigator.clipboard.write([clipboardItem]);
       } else {
-        // 复制纯文本
-        navigator.clipboard.writeText(plainText);
+        navigator.clipboard.writeText(contentToCopy);
       }
       
       setIsCopied(true);
@@ -198,8 +193,6 @@ export default function AnalysisResult({
 
     } catch (e) {
       console.warn('现代 Clipboard API 失败，回退到旧方法。', e);
-      // 后备方案 (对旧浏览器)
-      const contentToCopy = showFurigana ? htmlContent : plainText;
       const textarea = document.createElement('textarea');
       textarea.value = contentToCopy;
       textarea.style.position = 'fixed';
@@ -219,7 +212,7 @@ export default function AnalysisResult({
     }
   };
 
-  // 词详情内容组件
+  // 词语详情内容组件
   const WordDetailContent = () => (
     <>
       <h3 className="text-xl font-semibold text-[#007AFF] mb-3">词汇详解</h3>
@@ -319,7 +312,7 @@ export default function AnalysisResult({
                 className={`word-token ${getPosClass(token.pos)}`}
                 onClick={(e) => handleWordClick(e, token)}
               >
-                {showFurigana && token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号'
+                {showFurigana && token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号'
                   ? generateFuriganaParts(token.word, token.furigana).map((part, i) =>
                       part.ruby ? (
                         <ruby key={i}>
@@ -333,7 +326,7 @@ export default function AnalysisResult({
                   : token.word}
               </span>
               
-              {token.romaji && token.pos !== '记号' && (
+              {token.romaji && token.pos !== '記号' && (
                 <span className="romaji-text">{token.romaji}</span>
               )}
               
