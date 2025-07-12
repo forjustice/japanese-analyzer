@@ -164,7 +164,7 @@ export default function AnalysisResult({
         if (token.pos === '改行') return '<br>';
         
         const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号';
-        if (shouldUseFurigana) {
+        if (shouldUseFurigana && token.furigana) {
           // 使用 generateFuriganaParts 确保只为汉字部分添加 ruby 标签
           return generateFuriganaParts(token.word, token.furigana)
             .map(part => part.ruby ? `<ruby>${part.base}<rt>${part.ruby}</rt></ruby>` : part.base)
