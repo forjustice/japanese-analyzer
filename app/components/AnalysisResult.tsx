@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { containsKanji, getPosClass, posChineseMap, speakJapanese, generateFuriganaParts } from '../utils/helpers';
 import { getWordDetails, TokenData, WordDetail } from '../services/api';
-import { FaVolumeUp } from 'react-icons/fa';
+import { FaVolumeUp, FaCopy, FaCheck } from 'react-icons/fa';
 
 interface AnalysisResultProps {
   tokens: TokenData[];
@@ -14,8 +14,8 @@ interface AnalysisResultProps {
   onShowFuriganaChange: (show: boolean) => void;
 }
 
-export default function AnalysisResult({ 
-  tokens, 
+export default function AnalysisResult({
+  tokens,
   originalSentence,
   userApiKey,
   userApiUrl,
@@ -27,8 +27,9 @@ export default function AnalysisResult({
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
-  // 检测设备是���为移动端
+  // 检测设备是否为移动端
   useEffect(() => {
     const checkIsMobile = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -152,7 +153,73 @@ export default function AnalysisResult({
     return { __html: formattedText };
   };
 
-  // 词语详情内容组件
+  const handleCopy = () => {
+    let htmlContent = '';
+    let plainText = '';
+
+    // 根据 "显示假名" 开关的状态来决定复制的内容
+    if (showFurigana) {
+      // 开关打开：生成带 <ruby> 标签的 HTML
+      htmlContent = tokens.map(token => {
+        if (token.pos === '改行') return '<br>';
+        
+        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号';
+        if (shouldUseFurigana) {
+          // 使用 generateFuriganaParts 确保只为汉字部分添加 ruby 标签
+          return generateFuriganaParts(token.word, token.furigana)
+            .map(part => part.ruby ? `<ruby>${part.base}<rt>${part.ruby}</rt></ruby>` : part.base)
+            .join('');
+        } else {
+          return token.word;
+        }
+      }).join('');
+      plainText = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
+    } else {
+      // 开关关闭：只生成纯文本
+      plainText = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
+      htmlContent = plainText.replace(/\n/g, '<br>');
+    }
+
+    // 执行复制操作
+    try {
+      if (showFurigana) {
+        // 复制带格式的 HTML
+        const blobHtml = new Blob([htmlContent], { type: 'text/html' });
+        const blobText = new Blob([plainText], { type: 'text/plain' });
+        const clipboardItem = new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText });
+        navigator.clipboard.write([clipboardItem]);
+      } else {
+        // 复制纯文本
+        navigator.clipboard.writeText(plainText);
+      }
+      
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+
+    } catch (e) {
+      console.warn('现代 Clipboard API 失败，回退到旧方法。', e);
+      // 后备方案 (对旧浏览器)
+      const contentToCopy = showFurigana ? htmlContent : plainText;
+      const textarea = document.createElement('textarea');
+      textarea.value = contentToCopy;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      } catch (err) {
+        console.error('后备复制方案失败:', err);
+        alert('复制功能在此浏览器中不受支持。');
+      } finally {
+        document.body.removeChild(textarea);
+      }
+    }
+  };
+
+  // 词详情内容组件
   const WordDetailContent = () => (
     <>
       <h3 className="text-xl font-semibold text-[#007AFF] mb-3">词汇详解</h3>
@@ -216,7 +283,16 @@ export default function AnalysisResult({
   return (
     <div className="premium-card">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold text-gray-700">解析结果</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-semibold text-gray-700">解析结果</h2>
+          <button
+            onClick={handleCopy}
+            className={`p-2 rounded-full transition-all duration-200 ${isCopied ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+            title={isCopied ? "已复制!" : (showFurigana ? "以带注音的HTML格式复制" : "以纯文本格式复制")}
+          >
+            {isCopied ? <FaCheck /> : <FaCopy />}
+          </button>
+        </div>
         <div className="flex items-center">
           <label htmlFor="furiganaToggle" className="text-sm font-medium text-gray-700 mr-2">显示假名:</label>
           <label className="inline-flex items-center cursor-pointer">
@@ -243,7 +319,7 @@ export default function AnalysisResult({
                 className={`word-token ${getPosClass(token.pos)}`}
                 onClick={(e) => handleWordClick(e, token)}
               >
-                {showFurigana && token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号'
+                {showFurigana && token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号'
                   ? generateFuriganaParts(token.word, token.furigana).map((part, i) =>
                       part.ruby ? (
                         <ruby key={i}>
@@ -257,7 +333,7 @@ export default function AnalysisResult({
                   : token.word}
               </span>
               
-              {token.romaji && token.pos !== '記号' && (
+              {token.romaji && token.pos !== '记号' && (
                 <span className="romaji-text">{token.romaji}</span>
               )}
               
