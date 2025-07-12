@@ -29,17 +29,11 @@ export default function AnalysisResult({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  // 检测设备是否为移动端
   useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
+    const checkIsMobile = () => setIsMobile(window.innerWidth <= 768);
     checkIsMobile();
     window.addEventListener('resize', checkIsMobile);
-    return () => {
-      window.removeEventListener('resize', checkIsMobile);
-    };
+    return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
 
   const handleWordClick = async (e: React.MouseEvent<HTMLSpanElement>, token: TokenData) => {
@@ -49,39 +43,27 @@ export default function AnalysisResult({
     if (activeWordToken === target) {
       setActiveWordToken(null);
       setWordDetail(null);
-      if (isMobile) {
-        setIsModalOpen(false);
-      }
+      if (isMobile) setIsModalOpen(false);
       return;
     }
 
-    if (activeWordToken) {
-      activeWordToken.classList.remove('active-word');
-    }
+    if (activeWordToken) activeWordToken.classList.remove('active-word');
     target.classList.add('active-word');
     setActiveWordToken(target);
     
-    if (isMobile) {
-      setIsLoading(true);
-      setIsModalOpen(true);
-      await fetchWordDetails(token.word, token.pos, originalSentence, token.furigana, token.romaji);
-    } else {
-      await fetchWordDetails(token.word, token.pos, originalSentence, token.furigana, token.romaji);
-    }
-  };
-
-  const fetchWordDetails = async (word: string, pos: string, sentence: string, furigana?: string, romaji?: string) => {
     setIsLoading(true);
+    if (isMobile) setIsModalOpen(true);
+    
     try {
-      const details = await getWordDetails(word, pos, sentence, furigana, romaji, userApiKey, userApiUrl);
+      const details = await getWordDetails(token.word, token.pos, originalSentence, token.furigana, token.romaji, userApiKey, userApiUrl);
       setWordDetail(details);
     } catch (error) {
       console.error('Error fetching word details:', error);
       setWordDetail({ 
-        originalWord: word, 
-        pos: pos, 
-        furigana: (furigana && furigana !== word && containsKanji(word)) ? furigana : '', 
-        romaji: romaji || '', 
+        originalWord: token.word, 
+        pos: token.pos, 
+        furigana: (token.furigana && token.furigana !== token.word && containsKanji(token.word)) ? token.furigana : '', 
+        romaji: token.romaji || '', 
         dictionaryForm: '', 
         chineseTranslation: '错误', 
         explanation: `查询释义时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`
@@ -102,25 +84,16 @@ export default function AnalysisResult({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        activeWordToken && 
-        wordDetail && 
-        !(activeWordToken.contains(event.target as Node)) && 
-        !(document.getElementById('wordDetailInlineContainer')?.contains(event.target as Node)) &&
-        !(document.getElementById('wordDetailModal')?.contains(event.target as Node)) &&
-        !(event.target as Element)?.closest('.word-unit-wrapper')
-      ) {
+      const wordDetailElement = document.getElementById('wordDetailInlineContainer') || document.getElementById('wordDetailModal');
+      if (activeWordToken && !activeWordToken.contains(event.target as Node) && wordDetailElement && !wordDetailElement.contains(event.target as Node)) {
         handleCloseWordDetail();
       }
     };
-
     document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [activeWordToken, wordDetail, handleCloseWordDetail]);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [activeWordToken, handleCloseWordDetail]);
 
-  const handleWordSpeak = async (word: string) => {
+  const handleWordSpeak = (word: string) => {
     try {
       speakJapanese(word);
     } catch (error) {
@@ -128,8 +101,8 @@ export default function AnalysisResult({
     }
   };
 
-  const formatExplanation = (text: string): { __html: string } | undefined => {
-    if (!text) return undefined;
+  const formatExplanation = (text: string | undefined): { __html: string } => {
+    if (!text) return { __html: '' };
     const formattedText = text
       .replace(/\n/g, '<br />')
       .replace(/【([^】]+)】/g, '<strong class="text-indigo-600">$1</strong>')
@@ -138,44 +111,38 @@ export default function AnalysisResult({
   };
 
   const handleCopy = () => {
+    const plainText = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
     let contentToCopy: string;
-    const isHtml = showFurigana;
+    let isHtml = false;
 
-    if (isHtml) {
+    if (showFurigana) {
+      isHtml = true;
       contentToCopy = tokens.map(token => {
         if (token.pos === '改行') return '<br>';
-        
-        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号';
-        
-        // This check is critical for type safety
-        if (shouldUseFurigana && token.furigana) { 
+        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号';
+        if (shouldUseFurigana && token.furigana) {
           return generateFuriganaParts(token.word, token.furigana)
             .map(part => part.ruby ? `<ruby>${part.base}<rt>${part.ruby}</rt></ruby>` : part.base)
             .join('');
-        } else {
-          return token.word;
         }
+        return token.word;
       }).join('');
     } else {
-      contentToCopy = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
+      contentToCopy = plainText;
     }
 
     try {
       if (isHtml) {
-        const plainText = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
         const blobHtml = new Blob([contentToCopy], { type: 'text/html' });
         const blobText = new Blob([plainText], { type: 'text/plain' });
-        const clipboardItem = new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText });
-        navigator.clipboard.write([clipboardItem]);
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })]);
       } else {
         navigator.clipboard.writeText(contentToCopy);
       }
-      
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
-
     } catch (e) {
-      console.warn('现代 Clipboard API 失败，回退到旧方法。', e);
+      console.warn('Clipboard API 失败，回退到旧方法。', e);
       const textarea = document.createElement('textarea');
       textarea.value = contentToCopy;
       textarea.style.position = 'fixed';
@@ -195,173 +162,75 @@ export default function AnalysisResult({
     }
   };
 
-  const WordDetailContent = () => (
+  const WordDetailContent = () => wordDetail && (
     <>
       <h3 className="text-xl font-semibold text-[#007AFF] mb-3">词汇详解</h3>
       <p className="mb-1">
         <strong>原文:</strong> 
-        <span className="font-mono text-lg text-gray-800">{wordDetail?.originalWord}</span> 
-        <button 
-          className="read-aloud-button" 
-          title="朗读此词汇"
-          onClick={() => handleWordSpeak(wordDetail?.originalWord || '')}
-        >
+        <span className="font-mono text-lg text-gray-800">{wordDetail.originalWord}</span> 
+        <button className="read-aloud-button" title="朗读此词汇" onClick={() => handleWordSpeak(wordDetail.originalWord)}>
           <FaVolumeUp />
         </button>
       </p>
-      
-      {wordDetail?.furigana && (
-        <p className="mb-1">
-          <strong>读音 (Furigana):</strong> 
-          <span className="text-sm text-purple-700">{wordDetail.furigana}</span>
-        </p>
-      )}
-      
-      {wordDetail?.romaji && (
-        <p className="mb-1">
-          <strong>罗马音 (Romaji):</strong> 
-          <span className="text-sm text-cyan-700">{wordDetail.romaji}</span>
-        </p>
-      )}
-      
-      {wordDetail?.dictionaryForm && wordDetail.dictionaryForm !== wordDetail.originalWord && (
-        <p className="mb-2">
-          <strong>辞书形:</strong> 
-          <span className="text-md text-blue-700 font-medium">{wordDetail.dictionaryForm}</span>
-        </p>
-      )}
-      
-      <p className="mb-2">
-        <strong>词性:</strong> 
-        <span className={`detail-pos-tag ${getPosClass(wordDetail?.pos || '')}`}>
-          {wordDetail?.pos} ({posChineseMap[wordDetail?.pos.split('-')[0] || ''] || posChineseMap['default']})
-        </span>
-      </p>
-      
-      <p className="mb-2">
-        <strong>中文译文:</strong> 
-        <span className="text-lg text-green-700 font-medium">{wordDetail?.chineseTranslation}</span>
-      </p>
-      
+      {wordDetail.furigana && <p className="mb-1"><strong>读音:</strong> <span className="text-sm text-purple-700">{wordDetail.furigana}</span></p>}
+      {wordDetail.romaji && <p className="mb-1"><strong>罗马音:</strong> <span className="text-sm text-cyan-700">{wordDetail.romaji}</span></p>}
+      {wordDetail.dictionaryForm && wordDetail.dictionaryForm !== wordDetail.originalWord && <p className="mb-2"><strong>辞书形:</strong> <span className="text-md text-blue-700 font-medium">{wordDetail.dictionaryForm}</span></p>}
+      <p className="mb-2"><strong>词性:</strong> <span className={`detail-pos-tag ${getPosClass(wordDetail.pos)}`}>{wordDetail.pos} ({posChineseMap[wordDetail.pos.split('-')[0]] || posChineseMap['default']})</span></p>
+      <p className="mb-2"><strong>中文译文:</strong> <span className="text-lg text-green-700 font-medium">{wordDetail.chineseTranslation}</span></p>
       <div className="mb-1"><strong>解释:</strong></div>
-      <div 
-        className="text-gray-700 bg-gray-50 p-3 rounded-md text-base leading-relaxed"
-        dangerouslySetInnerHTML={formatExplanation(wordDetail?.explanation || '')}
-      />
+      <div className="text-gray-700 bg-gray-50 p-3 rounded-md text-base leading-relaxed" dangerouslySetInnerHTML={formatExplanation(wordDetail.explanation)} />
     </>
   );
 
-  if (!tokens || tokens.length === 0) {
-    return null;
-  }
+  if (!tokens || tokens.length === 0) return null;
 
   return (
     <div className="premium-card">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-2xl font-semibold text-gray-700">解析结果</h2>
-          <button
-            onClick={handleCopy}
-            className={`p-2 rounded-full transition-all duration-200 ${isCopied ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-            title={isCopied ? "已复制!" : (showFurigana ? "以带注音的HTML格式复制" : "以纯文本格式复制")}
-          >
+          <button onClick={handleCopy} className={`p-2 rounded-full transition-all duration-200 ${isCopied ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} title={isCopied ? "已复制!" : (showFurigana ? "以带注音的HTML格式复制" : "以纯文本格式复制")}>
             {isCopied ? <FaCheck /> : <FaCopy />}
           </button>
         </div>
         <div className="flex items-center">
           <label htmlFor="furiganaToggle" className="text-sm font-medium text-gray-700 mr-2">显示假名:</label>
           <label className="inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              id="furiganaToggle"
-              className="sr-only peer"
-              checked={showFurigana}
-              onChange={(e) => onShowFuriganaChange(e.target.checked)}
-            />
+            <input type="checkbox" id="furiganaToggle" className="sr-only peer" checked={showFurigana} onChange={(e) => onShowFuriganaChange(e.target.checked)} />
             <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
           </label>
         </div>
       </div>
       <div id="analyzedSentenceOutput" className="text-gray-800 mb-2 p-3 bg-gray-50 rounded-lg min-h-[70px]">
-        {tokens.map((token, index) => {
-          if (token.pos === '改行') {
-            return <br key={index} />;
-          }
-          
-          return (
+        {tokens.map((token, index) => 
+          token.pos === '改行' ? <br key={index} /> : (
             <span key={index} className="word-unit-wrapper tooltip">
-              <span 
-                className={`word-token ${getPosClass(token.pos)}`}
-                onClick={(e) => handleWordClick(e, token)}
-              >
-                {showFurigana && token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号'
+              <span className={`word-token ${getPosClass(token.pos)}`} onClick={(e) => handleWordClick(e, token)}>
+                {showFurigana && token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号'
                   ? generateFuriganaParts(token.word, token.furigana).map((part, i) =>
-                      part.ruby ? (
-                        <ruby key={i}>
-                          {part.base}
-                          <rt>{part.ruby}</rt>
-                        </ruby>
-                      ) : (
-                        <span key={i}>{part.base}</span>
-                      )
+                      part.ruby ? <ruby key={i}>{part.base}<rt>{part.ruby}</rt></ruby> : <span key={i}>{part.base}</span>
                     )
                   : token.word}
               </span>
-              
-              {token.romaji && token.pos !== '记号' && (
-                <span className="romaji-text">{token.romaji}</span>
-              )}
-              
-              <span className="tooltiptext">
-                {posChineseMap[token.pos.split('-')[0]] || posChineseMap['default']}
-              </span>
+              {token.romaji && token.pos !== '記号' && <span className="romaji-text">{token.romaji}</span>}
+              <span className="tooltiptext">{posChineseMap[token.pos.split('-')[0]] || posChineseMap['default']}</span>
             </span>
-          );
-        })}
+          )
+        )}
       </div>
       
       {!isMobile && (isLoading || wordDetail) && (
-        <div id="wordDetailInlineContainer" style={{ display: 'block' }}>
-          <button 
-            className="detail-close-button" 
-            title="关闭详情"
-            onClick={handleCloseWordDetail}
-          >
-            &times;
-          </button>
-          
-          {isLoading ? (
-            <div className="flex items-center justify-center py-5">
-              <div className="loading-spinner"></div>
-              <span className="ml-2 text-gray-600">正在查询释义...</span>
-            </div>
-          ) : (
-            <WordDetailContent />
-          )}
+        <div id="wordDetailInlineContainer" className="relative mt-4 p-4 border rounded-lg bg-white shadow-md">
+          <button className="detail-close-button" title="关闭详情" onClick={handleCloseWordDetail}>&times;</button>
+          {isLoading ? <div className="flex items-center justify-center py-5"><div className="loading-spinner"></div><span className="ml-2 text-gray-600">正在查询释义...</span></div> : <WordDetailContent />}
         </div>
       )}
       
       {isMobile && isModalOpen && (
-        <div id="wordDetailModal" className="word-detail-modal" onClick={(e) => {
-          if (e.target === e.currentTarget) handleCloseWordDetail();
-        }}>
+        <div id="wordDetailModal" className="word-detail-modal" onClick={(e) => { if (e.target === e.currentTarget) handleCloseWordDetail(); }}>
           <div className="word-detail-modal-content">
-            <button 
-              className="modal-close-button" 
-              title="关闭详情"
-              onClick={handleCloseWordDetail}
-            >
-              &times;
-            </button>
-            
-            {isLoading ? (
-              <div className="flex items-center justify-center py-5">
-                <div className="loading-spinner"></div>
-                <span className="ml-2 text-gray-600">正在查询释义...</span>
-              </div>
-            ) : (
-              <WordDetailContent />
-            )}
+            <button className="modal-close-button" title="关闭详情" onClick={handleCloseWordDetail}>&times;</button>
+            {isLoading ? <div className="flex items-center justify-center py-5"><div className="loading-spinner"></div><span className="ml-2 text-gray-600">正在查询释义...</span></div> : <WordDetailContent />}
           </div>
         </div>
       )}
