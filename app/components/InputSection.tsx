@@ -423,7 +423,7 @@ export default function InputSection({
         ></textarea>
         {inputText.trim() !== '' && (
           <button 
-            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 focus:outline-none"
+            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 focus:outline-none"
             onClick={() => setInputText('')}
             title="清空内容"
           >
@@ -504,30 +504,41 @@ export default function InputSection({
             
             {/* TTS选择下拉菜单 */}
             {showTtsDropdown && (
-              <div className="absolute top-full right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 p-3 w-72">
+              <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg z-10 p-3 w-72" 
+                   style={{
+                     backgroundColor: 'var(--bg-primary)',
+                     border: '1px solid var(--border-secondary)',
+                     color: 'var(--text-primary)'
+                   }}>
                 {/* TTS提供商选择 */}
                 <div className="mb-3">
-                  <label className="block text-xs font-medium text-gray-700 mb-2">语音合成方式</label>
+                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>语音合成方式</label>
                   <div className="space-y-1">
                     <button
-                      className={`w-full px-3 py-2 text-left text-sm rounded-md transition-colors ${
-                        ttsProvider === 'system' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'text-gray-700 hover:bg-gray-50 border border-gray-200'
-                      }`}
+                      className="w-full px-3 py-2 text-left text-sm rounded-md transition-colors border"
+                      style={{
+                        backgroundColor: ttsProvider === 'system' ? 'var(--text-link)' : 'var(--bg-secondary)',
+                        color: ttsProvider === 'system' ? 'white' : 'var(--text-primary)',
+                        borderColor: ttsProvider === 'system' ? 'var(--text-link)' : 'var(--border-secondary)'
+                      }}
                       onClick={() => handleTtsProviderSelect('system')}
                     >
                       <FaDesktop className="mr-2 inline" />
                       系统 TTS
-                      <div className="text-xs text-gray-500 mt-1">浏览器内置，速度快</div>
+                      <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>浏览器内置，速度快</div>
                     </button>
                     <button
-                      className={`w-full px-3 py-2 text-left text-sm rounded-md transition-colors ${
-                        ttsProvider === 'gemini' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'text-gray-700 hover:bg-gray-50 border border-gray-200'
-                      }`}
+                      className="w-full px-3 py-2 text-left text-sm rounded-md transition-colors border"
+                      style={{
+                        backgroundColor: ttsProvider === 'gemini' ? 'var(--text-link)' : 'var(--bg-secondary)',
+                        color: ttsProvider === 'gemini' ? 'white' : 'var(--text-primary)',
+                        borderColor: ttsProvider === 'gemini' ? 'var(--text-link)' : 'var(--border-secondary)'
+                      }}
                       onClick={() => handleTtsProviderSelect('gemini')}
                     >
                       <FaRobot className="mr-2 inline" />
                       Gemini TTS
-                      <div className="text-xs text-gray-500 mt-1">AI语音，音质自然，速度慢</div>
+                      <div className="text-xs mt-1" style={{ color: ttsProvider === 'gemini' ? 'rgba(255,255,255,0.8)' : 'var(--text-tertiary)' }}>AI语音，音质自然，速度慢</div>
                     </button>
                   </div>
                 </div>
@@ -537,12 +548,15 @@ export default function InputSection({
                   <>
                     {/* 语音选择 */}
                     <div className="mb-3">
-                      <label className="block text-xs font-medium text-gray-700 mb-2">语音选择</label>
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>语音选择</label>
                       <select
                         value={selectedVoice}
                         onChange={(e) => handleVoiceChange(e.target.value)}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white appearance-none"
+                        className="w-full px-2 py-1 text-sm border rounded-md focus:ring-2 appearance-none"
                         style={{
+                          backgroundColor: 'var(--bg-primary)',
+                          borderColor: 'var(--border-secondary)',
+                          color: 'var(--text-primary)',
                           backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
                           backgroundPosition: 'right 0.5rem center',
                           backgroundRepeat: 'no-repeat',
@@ -560,12 +574,15 @@ export default function InputSection({
 
                     {/* 语音风格 */}
                     <div className="mb-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-2">语音风格</label>
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>语音风格</label>
                       <select
                         value={selectedStyle}
                         onChange={(e) => handleStyleChange(e.target.value)}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white appearance-none"
+                        className="w-full px-2 py-1 text-sm border rounded-md focus:ring-2 appearance-none"
                         style={{
+                          backgroundColor: 'var(--bg-primary)',
+                          borderColor: 'var(--border-secondary)',
+                          color: 'var(--text-primary)',
                           backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
                           backgroundPosition: 'right 0.5rem center',
                           backgroundRepeat: 'no-repeat',

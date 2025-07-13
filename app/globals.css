@@ -67,6 +67,34 @@ textarea {
   --font-mono: var(--font-geist-mono);
 }
 
+/* Dark theme variables for .dark class */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 0, 0, 0;
+
+  /* 深色主题颜色变量 */
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+  --text-link: #4ade80;
+  --text-link-hover: #86efac;
+
+  --bg-primary: #1f2937;
+  --bg-secondary: #111827;
+  --bg-tertiary: #374151;
+
+  --border-primary: #374151;
+  --border-secondary: #4b5563;
+
+  --button-bg: #374151;
+  --button-text: #9ca3af;
+  --button-hover-bg: #4b5563;
+  --button-hover-text: #f9fafb;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -1488,6 +1516,51 @@ html.safari #japaneseInput {
 
 .dark .bg-red-50 {
   background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+/* 强制深色主题样式 - 覆盖所有可能的组合 */
+.dark .bg-white {
+  background-color: var(--bg-primary) !important;
+}
+
+.dark .border-gray-300 {
+  border-color: var(--border-secondary) !important;
+}
+
+.dark .border-gray-200 {
+  border-color: var(--border-primary) !important;
+}
+
+.dark .text-gray-700 {
+  color: var(--text-primary) !important;
+}
+
+.dark .text-gray-600 {
+  color: var(--text-secondary) !important;
+}
+
+.dark .text-gray-500 {
+  color: var(--text-tertiary) !important;
+}
+
+.dark .hover\:bg-gray-50:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+.dark .text-blue-700 {
+  color: #60a5fa !important;
+}
+
+.dark .border-blue-200 {
+  border-color: #1e40af !important;
 }
 
 /* 确保在暗色模式下，所有文本都有一个默认的平滑过渡效果 */
