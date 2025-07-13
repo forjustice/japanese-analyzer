@@ -201,20 +201,40 @@ export default function AnalysisResult({
     <div className="premium-card">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-semibold text-gray-700">解析结果</h2>
-          <button onClick={handleCopy} className={`p-2 rounded-full transition-all duration-200 ${isCopied ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} title={isCopied ? "已复制!" : (showFurigana ? "以带注音的HTML格式复制" : "以纯文本格式复制")}>
+          <h2 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>解析结果</h2>
+          <button 
+            onClick={handleCopy} 
+            className="p-2 rounded-full transition-all duration-200" 
+            style={{
+              backgroundColor: isCopied ? '#22c55e' : 'var(--button-bg)',
+              color: isCopied ? 'white' : 'var(--button-text)'
+            }}
+            onMouseEnter={(e) => {
+              if (!isCopied) {
+                e.currentTarget.style.backgroundColor = 'var(--button-hover-bg)';
+                e.currentTarget.style.color = 'var(--button-hover-text)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isCopied) {
+                e.currentTarget.style.backgroundColor = 'var(--button-bg)';
+                e.currentTarget.style.color = 'var(--button-text)';
+              }
+            }}
+            title={isCopied ? "已复制!" : (showFurigana ? "以带注音的HTML格式复制" : "以纯文本格式复制")}
+          >
             {isCopied ? <FaCheck /> : <FaCopy />}
           </button>
         </div>
         <div className="flex items-center">
-          <label htmlFor="furiganaToggle" className="text-sm font-medium text-gray-700 mr-2">显示假名:</label>
+          <label htmlFor="furiganaToggle" className="text-sm font-medium mr-2" style={{ color: 'var(--text-secondary)' }}>显示假名:</label>
           <label className="inline-flex items-center cursor-pointer">
             <input type="checkbox" id="furiganaToggle" className="sr-only peer" checked={showFurigana} onChange={(e) => onShowFuriganaChange(e.target.checked)} />
             <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
           </label>
         </div>
       </div>
-      <div id="analyzedSentenceOutput" className="text-gray-800 mb-2 p-3 bg-gray-50 rounded-lg min-h-[70px]">
+      <div id="analyzedSentenceOutput" className="mb-2 p-3 rounded-lg min-h-[70px]" style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-secondary)' }}>
         {tokens.map((token, index) => 
           token.pos === '改行' ? <br key={index} /> : (
             <span key={index} className="word-unit-wrapper tooltip">
@@ -248,34 +268,44 @@ export default function AnalysisResult({
         </div>
       )}
       
-      <p className="text-sm text-gray-500 italic mt-3">点击词汇查看详细释义。悬停词汇可查看词性。</p>
+      <p className="text-sm italic mt-3" style={{ color: 'var(--text-tertiary)' }}>点击词汇查看详细释义。悬停词汇可查看词性。</p>
       
       {/* HTML复制弹窗 */}
       {showHtmlModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowHtmlModal(false)}>
-          <div className="bg-white rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto" 
+               style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} 
+               onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Ruby HTML 代码</h3>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Ruby HTML 代码</h3>
               <button 
                 onClick={() => setShowHtmlModal(false)}
-                className="text-gray-500 hover:text-gray-700 text-xl"
+                className="text-xl"
+                style={{ color: 'var(--text-tertiary)' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
               >
                 ×
               </button>
             </div>
             
             <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">请复制以下HTML代码在支持Ruby标签的编辑器中使用：</p>
+              <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>请复制以下HTML代码在支持Ruby标签的编辑器中使用：</p>
               <textarea 
-                className="w-full h-48 p-3 border border-gray-300 rounded text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-48 p-3 border rounded text-sm font-mono resize-none focus:outline-none focus:ring-2"
+                style={{ 
+                  backgroundColor: 'var(--bg-secondary)', 
+                  borderColor: 'var(--border-secondary)', 
+                  color: 'var(--text-primary)'
+                }}
                 value={htmlContent}
                 readOnly
                 onClick={(e) => e.currentTarget.select()}
               />
             </div>
             
-            <div className="mb-4 p-3 border border-gray-200 rounded bg-gray-50">
-              <p className="text-sm text-gray-600 mb-2">预览效果：</p>
+            <div className="mb-4 p-3 border rounded" style={{ borderColor: 'var(--border-secondary)', backgroundColor: 'var(--bg-secondary)' }}>
+              <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>预览效果：</p>
               <div 
                 className="text-base leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: htmlContent }}
@@ -329,7 +359,19 @@ export default function AnalysisResult({
               </button>
               <button
                 onClick={() => setShowHtmlModal(false)}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                className="px-4 py-2 rounded focus:outline-none focus:ring-2"
+                style={{ 
+                  backgroundColor: 'var(--button-bg)', 
+                  color: 'var(--button-text)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--button-hover-bg)';
+                  e.currentTarget.style.color = 'var(--button-hover-text)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--button-bg)';
+                  e.currentTarget.style.color = 'var(--button-text)';
+                }}
               >
                 关闭
               </button>

@@ -98,7 +98,7 @@ export default function TranslationSection({
       {(isLoading || translation) && (
         <div id="fullTranslationCard" className="premium-card mt-4">
           <div className="flex justify-between items-center mb-3">
-            <h2 className="text-2xl font-semibold text-gray-700" style={{ marginBottom: isVisible ? '0.75rem' : '0' }}>全文翻译 (中)</h2>
+            <h2 className="text-2xl font-semibold text-gray-700" style={{ marginBottom: isVisible ? '0.75rem' : '0' }}>中文翻译</h2>
             <button 
               id="toggleFullTranslationButton" 
               className="premium-button premium-button-outlined text-sm px-3 py-1"

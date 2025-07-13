@@ -9,7 +9,7 @@ import LoginModal from './components/LoginModal';
 import HistoryModal from './components/HistoryModal';
 import { analyzeSentence, TokenData, DEFAULT_API_URL, streamAnalyzeSentence } from './services/api';
 import { saveAnalysisToHistory, AnalysisHistoryItem } from './utils/history';
-import { FaExclamationTriangle, FaExclamationCircle } from 'react-icons/fa';
+import { FaExclamationCircle } from 'react-icons/fa';
 
 export default function Home() {
   const [currentSentence, setCurrentSentence] = useState('');
@@ -482,25 +482,6 @@ export default function Home() {
             </div>
           )}
 
-          {isJsonParseError && streamContent && (
-            <div className="premium-card">
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-3 sm:p-4 mb-4 transition-colors duration-200">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <FaExclamationTriangle className="text-yellow-500" />
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300 transition-colors duration-200">
-                      解析中，已经收到部分内容，但尚未形成完整的结果。
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-md overflow-auto max-h-96 text-xs font-mono whitespace-pre-wrap text-gray-800 dark:text-gray-200 transition-colors duration-200">
-                {streamContent}
-              </div>
-            </div>
-          )}
 
           {analysisError && (
             <div className="premium-card">
