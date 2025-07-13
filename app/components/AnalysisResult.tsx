@@ -112,37 +112,49 @@ export default function AnalysisResult({
 
   const handleCopy = () => {
     const plainText = tokens.map(token => token.pos === '改行' ? '\n' : token.word).join('');
-    
-    // 总是生成带ruby标签的HTML格式，无论假名开关状态如何
-    const htmlContent = tokens.map(token => {
-      if (token.pos === '改行') return '<br>';
-      const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号';
-      if (shouldUseFurigana && token.furigana) {
-        return generateFuriganaParts(token.word, token.furigana)
-          .map(part => part.ruby ? `<ruby>${part.base}<rt>${part.ruby}</rt></ruby>` : part.base)
-          .join('');
-      }
-      return token.word;
-    }).join('');
-
-    // 根据假名开关状态决定主要复制内容
     let contentToCopy: string;
     let isHtml = false;
 
     if (showFurigana) {
-      // 当显示假名时，主要复制带ruby标签的HTML格式
       isHtml = true;
-      contentToCopy = htmlContent;
+      // 生成带ruby标签的HTML格式
+      contentToCopy = tokens.map(token => {
+        if (token.pos === '改行') return '<br>';
+        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号';
+        if (shouldUseFurigana && token.furigana) {
+          return generateFuriganaParts(token.word, token.furigana)
+            .map(part => part.ruby ? `<ruby>${part.base}<rt>${part.ruby}</rt></ruby>` : part.base)
+            .join('');
+        }
+        return token.word;
+      }).join('');
+      
+      // 同时生成备用格式（使用CSS类而不是ruby标签）
+      const fallbackHtml = tokens.map(token => {
+        if (token.pos === '改行') return '<br>';
+        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号';
+        if (shouldUseFurigana && token.furigana) {
+          return generateFuriganaParts(token.word, token.furigana)
+            .map(part => part.ruby ? `<span class="ruby-container"><span class="ruby-base">${part.base}</span><span class="ruby-text">${part.ruby}</span></span>` : part.base)
+            .join('');
+        }
+        return token.word;
+      }).join('');
+      
+      // 将两种格式都添加到剪贴板
+      contentToCopy = contentToCopy + '\n\n<!-- 备用格式（兼容性更好） -->\n' + fallbackHtml;
     } else {
-      // 当不显示假名时，主要复制纯文本格式，但HTML格式作为备选
       contentToCopy = plainText;
     }
 
     try {
-      // 总是提供HTML和纯文本两种格式
-      const blobHtml = new Blob([htmlContent], { type: 'text/html' });
-      const blobText = new Blob([plainText], { type: 'text/plain' });
-      navigator.clipboard.write([new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })]);
+      if (isHtml) {
+        const blobHtml = new Blob([contentToCopy], { type: 'text/html' });
+        const blobText = new Blob([plainText], { type: 'text/plain' });
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })]);
+      } else {
+        navigator.clipboard.writeText(contentToCopy);
+      }
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch (e) {
@@ -193,7 +205,7 @@ export default function AnalysisResult({
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-2xl font-semibold text-gray-700">解析结果</h2>
-          <button onClick={handleCopy} className={`p-2 rounded-full transition-all duration-200 ${isCopied ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} title={isCopied ? "已复制!" : "复制带注音的HTML格式和纯文本格式"}>
+          <button onClick={handleCopy} className={`p-2 rounded-full transition-all duration-200 ${isCopied ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} title={isCopied ? "已复制!" : (showFurigana ? "复制带注音的HTML格式（包含ruby标签和备用CSS格式）" : "以纯文本格式复制")}>
             {isCopied ? <FaCheck /> : <FaCopy />}
           </button>
         </div>
