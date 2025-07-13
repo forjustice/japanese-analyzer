@@ -28,6 +28,8 @@ export default function AnalysisResult({
   const [isMobile, setIsMobile] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [showHtmlModal, setShowHtmlModal] = useState(false);
+  const [htmlContent, setHtmlContent] = useState('');
 
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -138,11 +140,9 @@ export default function AnalysisResult({
 
     try {
       if (isHtml) {
-        // 对于HTML格式，当前环境不支持，直接显示HTML代码供用户复制
-        alert(`由于浏览器限制，无法直接复制HTML格式。\n\nHTML代码已在控制台显示，您可以复制使用：\n\n${contentToCopy}`);
-        console.log('=== Ruby HTML 代码 ===');
-        console.log(contentToCopy);
-        console.log('=== 复制上面的HTML代码在支持Ruby标签的编辑器中使用 ===');
+        // 显示自定义弹窗供用户复制HTML代码
+        setHtmlContent(contentToCopy);
+        setShowHtmlModal(true);
       } else {
         // 复制纯文本
         const textarea = document.createElement('textarea');
@@ -153,9 +153,9 @@ export default function AnalysisResult({
         textarea.select();
         document.execCommand('copy');
         document.body.removeChild(textarea);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
       }
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
       console.error('复制失败:', err);
       alert('复制功能不可用');
@@ -236,6 +236,98 @@ export default function AnalysisResult({
       )}
       
       <p className="text-sm text-gray-500 italic mt-3">点击词汇查看详细释义。悬停词汇可查看词性。</p>
+      
+      {/* HTML复制弹窗 */}
+      {showHtmlModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowHtmlModal(false)}>
+          <div className="bg-white rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Ruby HTML 代码</h3>
+              <button 
+                onClick={() => setShowHtmlModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">请复制以下HTML代码在支持Ruby标签的编辑器中使用：</p>
+              <textarea 
+                className="w-full h-48 p-3 border border-gray-300 rounded text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={htmlContent}
+                readOnly
+                onClick={(e) => e.currentTarget.select()}
+              />
+            </div>
+            
+            <div className="mb-4 p-3 border border-gray-200 rounded bg-gray-50">
+              <p className="text-sm text-gray-600 mb-2">预览效果：</p>
+              <div 
+                className="text-base leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: htmlContent }}
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  try {
+                    // 首先尝试使用现代clipboard API
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                      navigator.clipboard.writeText(htmlContent).then(() => {
+                        setIsCopied(true);
+                        setTimeout(() => setIsCopied(false), 2000);
+                        setShowHtmlModal(false);
+                      }).catch(() => {
+                        // clipboard API失败，使用fallback
+                        copyWithFallback();
+                      });
+                    } else {
+                      // 直接使用fallback方法
+                      copyWithFallback();
+                    }
+                  } catch (err) {
+                    copyWithFallback();
+                  }
+                  
+                  function copyWithFallback() {
+                    try {
+                      // 找到弹窗中的textarea并复制
+                      const modal = document.querySelector('.fixed.inset-0');
+                      const textarea = modal?.querySelector('textarea');
+                      if (textarea) {
+                        textarea.focus();
+                        textarea.select();
+                        textarea.setSelectionRange(0, textarea.value.length);
+                        const success = document.execCommand('copy');
+                        if (success) {
+                          setIsCopied(true);
+                          setTimeout(() => setIsCopied(false), 2000);
+                          setShowHtmlModal(false);
+                        } else {
+                          alert('复制失败，请手动选择文本复制');
+                        }
+                      }
+                    } catch (fallbackErr) {
+                      alert('复制失败，请手动选择文本复制');
+                    }
+                  }
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                复制HTML代码
+              </button>
+              <button
+                onClick={() => setShowHtmlModal(false)}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
