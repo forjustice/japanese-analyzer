@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { extractTextFromImage, streamExtractTextFromImage } from '../services/api';
+import { extractTextFromImage, streamExtractTextFromImage, extractTextFromFile, streamExtractTextFromFile } from '../services/api';
 import { getJapaneseTtsAudioUrl, speakJapanese } from '../utils/helpers';
-import { FaCamera, FaVolumeUp, FaChevronDown, FaDesktop, FaRobot, FaInfoCircle } from 'react-icons/fa';
+import { FaCamera, FaVolumeUp, FaChevronDown, FaDesktop, FaRobot, FaInfoCircle, FaFile } from 'react-icons/fa';
 
 // 添加内联样式
 const placeholderStyle = `
@@ -56,6 +56,7 @@ export default function InputSection({
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploadStatusClass, setUploadStatusClass] = useState('');
+  const [isFileUploading, setIsFileUploading] = useState(false);
   const [showTtsDropdown, setShowTtsDropdown] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState('Kore');
   const [selectedStyle, setSelectedStyle] = useState('');
@@ -147,6 +148,120 @@ export default function InputSection({
     return '30-60秒';
   };
 
+  // 处理文档文件的通用函数
+  const processDocumentFile = async (file: File) => {
+    const fileName = file.name.toLowerCase();
+    const fileType = file.type;
+    
+    console.log('文件信息:', { 
+      name: file.name, 
+      type: file.type, 
+      size: file.size,
+      lastModified: file.lastModified 
+    });
+    
+    // 检查文件类型 - 扩展支持更多MIME类型
+    const isValidType = 
+      fileType === 'application/pdf' || 
+      fileName.endsWith('.pdf') ||
+      fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      fileName.endsWith('.docx') ||
+      // 有些系统可能不正确识别docx的MIME类型
+      fileType === 'application/zip' && fileName.endsWith('.docx') ||
+      fileType === '' && fileName.endsWith('.docx'); // 某些情况下MIME类型为空
+    
+    if (!isValidType) {
+      setUploadStatus(`不支持的文件格式。文件类型: ${fileType}，文件名: ${fileName}`);
+      setUploadStatusClass('mt-2 text-sm text-red-600');
+      return;
+    }
+
+    setIsFileUploading(true);
+    setUploadStatus('正在解析文档并提取日语文字...');
+    setUploadStatusClass('mt-2 text-sm text-gray-600');
+
+    try {
+      // 优化提示词，专门针对文档文本提取，更宽容地处理内容
+      const documentExtractionPrompt = `请从以下文档内容中提取所有日文文字，并进行以下处理：
+
+**处理规则：**
+1. 提取所有日文内容（平假名、片假名、汉字，包括单个汉字）
+2. 保持原文的自然语句结构和分段
+3. 去除页眉、页脚、页码等明显无关内容，但保留可能的日文内容
+4. 修复因PDF提取造成的文本分割问题，将被分割的词汇重新组合
+5. 保留句子间的适当间隔，用空格分隔不同句子
+6. 如果遇到表格或列表，尽量保持其逻辑结构
+7. 去除明显重复的内容，但保留有意义的重复
+
+**宽容处理：**
+- 即使只有少量日文字符也要提取
+- 包括混合在其他语言中的日文
+- 保留可能的学习材料或练习内容
+- 不要过度过滤，宁可多提取也不要漏掉
+
+**输出要求：**
+- 只输出提取和整理后的日文文字
+- 不要添加任何解释、说明或额外信息
+- 只有在完全没有任何日文字符时才说明"未找到日文内容"
+- 保持文本的可读性和连贯性`;
+      
+      // 如果按住Shift键点击，则获取原始文本用于调试
+      const shouldReturnRawText = false; // 恢复正常AI处理模式
+      const finalPrompt = shouldReturnRawText ? 'RETURN_RAW_TEXT' : documentExtractionPrompt;
+      
+      if (useStream && !shouldReturnRawText) { // 原始文本模式下使用非流式处理
+        // 使用流式API进行文档文字提取
+        streamExtractTextFromFile(
+          file,
+          (chunk, isDone) => {
+            setInputText(chunk);
+            
+            if (isDone) {
+              setIsFileUploading(false);
+              if (chunk.includes('未找到日文内容')) {
+                setUploadStatus('文档中未找到日文内容。');
+                setUploadStatusClass('mt-2 text-sm text-yellow-600');
+              } else {
+                setUploadStatus('文档解析成功！请确认后点击"解析句子"。');
+                setUploadStatusClass('mt-2 text-sm text-green-600');
+              }
+            }
+          },
+          (error) => {
+            console.error('Error during streaming document text extraction:', error);
+            setUploadStatus(`解析时发生错误: ${error.message || '未知错误'}。`);
+            setUploadStatusClass('mt-2 text-sm text-red-600');
+            setIsFileUploading(false);
+          },
+          finalPrompt,
+          userApiKey,
+          userApiUrl
+        );
+      } else {
+        // 使用传统API进行文档文字提取
+        console.log('开始非流式API调用，prompt:', finalPrompt);
+        const extractedText = await extractTextFromFile(file, finalPrompt, userApiKey, userApiUrl);
+        console.log('非流式API返回的文本长度:', extractedText.length);
+        console.log('非流式API返回的文本内容:', extractedText.substring(0, 200));
+        setInputText(extractedText);
+        
+        if (extractedText.includes('未找到日文内容')) {
+          setUploadStatus('文档中未找到日文内容。');
+          setUploadStatusClass('mt-2 text-sm text-yellow-600');
+        } else {
+          setUploadStatus('文档解析成功！请确认后点击"解析句子"。');
+          setUploadStatusClass('mt-2 text-sm text-green-600');
+        }
+        setIsFileUploading(false);
+      }
+    } catch (error) {
+      console.error('Error during document text extraction:', error);
+      setUploadStatus(`解析时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`);
+      setUploadStatusClass('mt-2 text-sm text-red-600');
+      setIsFileUploading(false);
+    }
+  };
+
   // 处理图片识别的通用函数
   const processImageFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -210,6 +325,21 @@ export default function InputSection({
     if (!file) return;
     
     await processImageFile(file);
+    
+    // 清理file input
+    event.target.value = '';
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    // 根据文件类型决定处理方式
+    if (file.type.startsWith('image/')) {
+      await processImageFile(file);
+    } else {
+      await processDocumentFile(file);
+    }
     
     // 清理file input
     event.target.value = '';
@@ -296,7 +426,7 @@ export default function InputSection({
           id="japaneseInput" 
           className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#007AFF] focus:border-[#007AFF] transition duration-150 ease-in-out resize-none japanese-text" 
           rows={4} 
-          placeholder="例：今日はいい天気ですね。或上传图片识别文字，也可直接粘贴图片。"
+          placeholder="例：今日はいい天気ですね。或上传图片/PDF/Word文档提取文字，也可直接粘贴图片。"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onPaste={handlePaste}
@@ -332,16 +462,34 @@ export default function InputSection({
           className="hidden" 
           onChange={handleImageUpload}
         />
+        <input 
+          type="file" 
+          id="fileUploadInput" 
+          accept=".pdf,.docx,image/*" 
+          className="hidden" 
+          onChange={handleFileUpload}
+        />
         <div className="flex gap-2 w-full sm:w-auto mb-2 sm:mb-0 sm:order-1">
           <button
             id="uploadImageButton"
             className="premium-button premium-button-secondary flex-1 sm:w-auto text-sm sm:text-base py-2 sm:py-3"
             onClick={() => document.getElementById('imageUploadInput')?.click()}
-            disabled={isImageUploading}
+            disabled={isImageUploading || isFileUploading}
             title="上传图片提取文字"
           >
             <FaCamera />
             {isImageUploading && <div className="loading-spinner ml-2" style={{ width: '18px', height: '18px' }}></div>}
+          </button>
+
+          <button
+            id="uploadFileButton"
+            className="premium-button premium-button-secondary flex-1 sm:w-auto text-sm sm:text-base py-2 sm:py-3"
+            onClick={() => document.getElementById('fileUploadInput')?.click()}
+            disabled={isImageUploading || isFileUploading}
+            title="上传PDF或Word文档提取日语文字"
+          >
+            <FaFile />
+            {isFileUploading && <div className="loading-spinner ml-2" style={{ width: '18px', height: '18px' }}></div>}
           </button>
 
           {/* TTS按钮组 */}

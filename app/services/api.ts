@@ -666,6 +666,203 @@ export async function streamExtractTextFromImage(
   }
 }
 
+// 从文件提取文本
+export async function extractTextFromFile(
+  file: File, 
+  prompt?: string,
+  userApiKey?: string,
+  userApiUrl?: string
+): Promise<string> {
+  try {
+    const apiUrl = getApiEndpoint('/file-to-text');
+    
+    // 创建FormData对象
+    const formData = new FormData();
+    formData.append('file', file);
+    if (prompt) formData.append('prompt', prompt);
+    formData.append('model', MODEL_NAME);
+    if (userApiUrl && userApiUrl !== DEFAULT_API_URL) {
+      formData.append('apiUrl', userApiUrl);
+    }
+    formData.append('stream', 'false');
+    
+    // 构建headers，不包含Content-Type，让浏览器自动设置multipart边界
+    const headers: HeadersInit = {};
+    if (userApiKey) {
+      headers['Authorization'] = `Bearer ${userApiKey}`;
+    }
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('API Error (File to Text):', errorData);
+      throw new Error(`文件文字提取失败：${errorData.error?.message || response.statusText || '未知错误'}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content) {
+      return result.choices[0].message.content.trim();
+    } else {
+      console.error('Unexpected API response structure (File to Text):', result);
+      throw new Error('文件文字提取结果格式错误');
+    }
+  } catch (error) {
+    console.error('Error extracting text from file:', error);
+    throw error;
+  }
+}
+
+// 从文件提取文本 - 流式版本
+export async function streamExtractTextFromFile(
+  file: File, 
+  onChunk: (chunk: string, isDone: boolean) => void,
+  onError: (error: Error) => void,
+  prompt?: string,
+  userApiKey?: string,
+  userApiUrl?: string
+): Promise<void> {
+  try {
+    const apiUrl = getApiEndpoint('/file-to-text');
+    
+    // 创建FormData对象
+    const formData = new FormData();
+    formData.append('file', file);
+    if (prompt) formData.append('prompt', prompt);
+    formData.append('model', MODEL_NAME);
+    if (userApiUrl && userApiUrl !== DEFAULT_API_URL) {
+      formData.append('apiUrl', userApiUrl);
+    }
+    formData.append('stream', 'true');
+    
+    // 构建headers，不包含Content-Type，让浏览器自动设置multipart边界
+    const headers: HeadersInit = {};
+    if (userApiKey) {
+      headers['Authorization'] = `Bearer ${userApiKey}`;
+    }
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('API Error (Stream File to Text):', errorData);
+      onError(new Error(`流式文件文字提取失败：${errorData.error?.message || response.statusText || '未知错误'}`));
+      return;
+    }
+    
+    // 处理流式响应
+    const reader = response.body?.getReader();
+    if (!reader) {
+      onError(new Error('无法创建流式读取器'));
+      return;
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let rawContent = '';
+    let done = false;
+    
+    // 添加防抖，减少UI更新频率，提高性能
+    let updateTimeout: NodeJS.Timeout | null = null;
+    const updateDebounceTime = 100; // 100ms
+    
+    const debouncedUpdate = (content: string, isComplete: boolean) => {
+      if (updateTimeout) {
+        clearTimeout(updateTimeout);
+      }
+      
+      if (isComplete) {
+        // 最终结果不需要防抖
+        onChunk(content, true);
+        return;
+      }
+      
+      updateTimeout = setTimeout(() => {
+        onChunk(content, false);
+      }, updateDebounceTime);
+    };
+
+    while (!done) {
+      const { value, done: doneReading } = await reader.read();
+      done = doneReading;
+      
+      if (value) {
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+        
+        // 处理buffer中所有完整的行
+        const lines = buffer.split('\n');
+        // 最后一行可能不完整，保留到下一次处理
+        buffer = lines.pop() || '';
+        
+        let hasNewContent = false;
+        
+        for (const line of lines) {
+          if (line.trim() === '') continue;
+          
+          if (line.startsWith('data: ')) {
+            const data = line.substring(6);
+            if (data === '[DONE]') {
+              // 最终结果
+              onChunk(rawContent, true);
+              return;
+            }
+            
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+                const content = parsed.choices[0].delta.content;
+                rawContent += content;
+                hasNewContent = true;
+              }
+            } catch (e) {
+              console.warn('Failed to parse streaming JSON chunk:', e, data);
+            }
+          }
+        }
+        
+        // 只有在内容有更新时才触发更新
+        if (hasNewContent) {
+          debouncedUpdate(rawContent, false);
+        }
+      }
+    }
+    
+    // 处理最后可能剩余的数据
+    if (buffer.trim() !== '') {
+      if (buffer.startsWith('data: ')) {
+        const data = buffer.substring(6);
+        if (data !== '[DONE]') {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+              const content = parsed.choices[0].delta.content;
+              rawContent += content;
+            }
+          } catch (e) {
+            console.warn('Failed to parse final streaming JSON chunk:', e, data);
+          }
+        }
+      }
+    }
+    
+    // 最终结果
+    onChunk(rawContent, true);
+  } catch (error) {
+    console.error('Error in stream extracting text from file:', error);
+    onError(error instanceof Error ? error : new Error('未知错误'));
+  }
+}
+
 // 使用Gemini TTS合成语音
 export async function synthesizeSpeech(
   text: string,
