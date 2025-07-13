@@ -706,8 +706,14 @@ export async function extractTextFromFile(
 
     const result = await response.json();
     
+    // 添加调试日志
+    console.log('API返回的完整结果:', result);
+    
     if (result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content) {
-      return result.choices[0].message.content.trim();
+      const content = result.choices[0].message.content.trim();
+      console.log('API返回的内容长度:', content.length);
+      console.log('API返回的内容预览:', content.substring(0, 200));
+      return content;
     } else {
       console.error('Unexpected API response structure (File to Text):', result);
       throw new Error('文件文字提取结果格式错误');

@@ -181,32 +181,11 @@ export default function InputSection({
     setUploadStatusClass('mt-2 text-sm text-gray-600');
 
     try {
-      // 优化提示词，专门针对文档文本提取，更宽容地处理内容
-      const documentExtractionPrompt = `请从以下文档内容中提取所有日文文字，并进行以下处理：
-
-**处理规则：**
-1. 提取所有日文内容（平假名、片假名、汉字，包括单个汉字）
-2. 保持原文的自然语句结构和分段
-3. 去除页眉、页脚、页码等明显无关内容，但保留可能的日文内容
-4. 修复因PDF提取造成的文本分割问题，将被分割的词汇重新组合
-5. 保留句子间的适当间隔，用空格分隔不同句子
-6. 如果遇到表格或列表，尽量保持其逻辑结构
-7. 去除明显重复的内容，但保留有意义的重复
-
-**宽容处理：**
-- 即使只有少量日文字符也要提取
-- 包括混合在其他语言中的日文
-- 保留可能的学习材料或练习内容
-- 不要过度过滤，宁可多提取也不要漏掉
-
-**输出要求：**
-- 只输出提取和整理后的日文文字
-- 不要添加任何解释、说明或额外信息
-- 只有在完全没有任何日文字符时才说明"未找到日文内容"
-- 保持文本的可读性和连贯性`;
+      // 极简提示词，避免AI过度处理
+      const documentExtractionPrompt = `请直接输出以下文档中的所有内容，保持原有格式。`;
       
-      // 如果按住Shift键点击，则获取原始文本用于调试
-      const shouldReturnRawText = false; // 恢复正常AI处理模式
+      // 直接返回原始文本，绕过AI处理
+      const shouldReturnRawText = true;
       const finalPrompt = shouldReturnRawText ? 'RETURN_RAW_TEXT' : documentExtractionPrompt;
       
       if (useStream && !shouldReturnRawText) { // 原始文本模式下使用非流式处理
@@ -243,6 +222,7 @@ export default function InputSection({
         const extractedText = await extractTextFromFile(file, finalPrompt, userApiKey, userApiUrl);
         console.log('非流式API返回的文本长度:', extractedText.length);
         console.log('非流式API返回的文本内容:', extractedText.substring(0, 200));
+        
         setInputText(extractedText);
         
         if (extractedText.includes('未找到日文内容')) {

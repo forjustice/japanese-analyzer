@@ -250,6 +250,15 @@ export async function POST(req: NextRequest) {
     console.log('最终提取的文本长度:', extractedText.length);
     console.log('最终提取的文本内容（前500字符）:', extractedText.substring(0, 500));
     
+    // 检查文本中的日文字符
+    const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/;
+    const hasJapanese = japaneseRegex.test(extractedText);
+    console.log('原始文本中是否包含日文字符:', hasJapanese);
+    if (hasJapanese) {
+      const japaneseMatches = extractedText.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/g);
+      console.log('找到的日文字符示例:', japaneseMatches ? japaneseMatches.slice(0, 10) : '无');
+    }
+    
     // 如果提取的文本过长，进行截断处理
     const maxLength = 50000; // 限制最大文本长度
     if (extractedText.length > maxLength) {
@@ -266,6 +275,7 @@ export async function POST(req: NextRequest) {
         }]
       });
     }
+
 
     // 使用AI进行文本优化和日语提取
     const defaultPrompt = `请从以下文档内容中提取并整理文字，并进行以下处理：
@@ -358,6 +368,18 @@ ${extractedText}`;
           { error: { message: '读取API响应时出错，请稍后重试' } },
           { status: 500 }
         );
+      }
+
+      // 记录AI处理结果用于调试
+      if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+        const aiResponse = data.choices[0].message.content;
+        console.log('AI处理后的响应长度:', aiResponse.length);
+        console.log('AI处理后的响应内容（前300字符）:', aiResponse.substring(0, 300));
+        
+        // 检查AI响应中的日文字符
+        const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/;
+        const aiHasJapanese = japaneseRegex.test(aiResponse);
+        console.log('AI响应中是否包含日文字符:', aiHasJapanese);
       }
 
       // 将AI API的响应传回给客户端
