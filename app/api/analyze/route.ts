@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ApiClient } from '../../utils/api-client';
 
-// API密钥从环境变量获取，不暴露给前端
+// API密钥从环境变量获取，支持逗号分隔的多个密钥
 const API_KEY = process.env.API_KEY || '';
 const API_URL = process.env.API_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 const MODEL_NAME = "gemini-2.5-flash-preview-05-20";
+
+// 创建API客户端实例
+const apiClient = new ApiClient(API_KEY);
 
 
 export async function POST(req: NextRequest) {
@@ -15,16 +19,6 @@ export async function POST(req: NextRequest) {
     const authHeader = req.headers.get('Authorization');
     const userApiKey = authHeader ? authHeader.replace('Bearer ', '') : '';
     
-    // 优先使用用户API密钥，如果没有则使用环境变量中的密钥
-    const effectiveApiKey = userApiKey || API_KEY;
-    
-    if (!effectiveApiKey) {
-      return NextResponse.json(
-        { error: { message: '未提供API密钥，请在设置中配置API密钥或联系管理员配置服务器密钥' } },
-        { status: 500 }
-      );
-    }
-
     // 从请求中提取数据
     const { prompt, model = MODEL_NAME, apiUrl, stream = false } = requestData;
     
@@ -46,28 +40,56 @@ export async function POST(req: NextRequest) {
       stream: stream,
     };
 
-    // 发送到实际的AI API
-    const response = await fetch(effectiveApiUrl, {
+    // 使用API客户端发送请求，支持多KEY自动切换
+    const result = await apiClient.makeRequest({
+      url: effectiveApiUrl,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${effectiveApiKey}`
-      },
-      body: JSON.stringify(payload)
-    });
+      body: payload
+    }, userApiKey);
 
-    if (!response.ok) {
-      const data = await response.json();
-      console.error('AI API error:', data);
+    if (!result.success) {
+      console.error('AI API error:', result.error);
       return NextResponse.json(
-        { error: data.error || { message: '处理请求时出错' } },
-        { status: response.status }
+        { error: { message: result.error } },
+        { status: 500 }
       );
     }
 
-    // 如果是流式输出
+    // 处理流式响应（需要直接使用fetch来处理流）
     if (stream) {
-      // 将流式响应传回客户端
+      // 对于流式响应，我们需要直接使用fetch
+      const streamApiKey = userApiKey || apiClient.getWorkingKeysCount() > 0;
+      if (!streamApiKey && !userApiKey) {
+        return NextResponse.json(
+          { error: { message: '暂无可用的API密钥用于流式响应' } },
+          { status: 500 }
+        );
+      }
+
+      // 如果用户没有提供KEY，从多KEY中获取一个
+      let effectiveApiKey = userApiKey;
+      if (!effectiveApiKey) {
+        // 这里简化处理，实际使用时建议扩展ApiClient来支持流式响应
+        effectiveApiKey = API_KEY.split(',')[0]?.trim();
+      }
+
+      const response = await fetch(effectiveApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${effectiveApiKey}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const data = await response.text();
+        return NextResponse.json(
+          { error: { message: `流式请求失败: ${data}` } },
+          { status: response.status }
+        );
+      }
+
       const readableStream = response.body;
       if (!readableStream) {
         return NextResponse.json(
@@ -76,7 +98,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 创建一个新的流式响应
       return new NextResponse(readableStream, {
         headers: {
           'Content-Type': 'text/event-stream',
@@ -85,9 +106,8 @@ export async function POST(req: NextRequest) {
         }
       });
     } else {
-      // 非流式输出，按原来方式处理
-      const data = await response.json();
-      return NextResponse.json(data);
+      // 非流式输出，返回结果数据
+      return NextResponse.json(result.data);
     }
   } catch (error) {
     console.error('Server error:', error);
