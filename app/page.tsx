@@ -28,6 +28,7 @@ export default function Home() {
   
   // 设置下拉菜单状态
   const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -46,6 +47,26 @@ export default function Home() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isSettingsDropdownOpen]);
+
+  // 初始化主题状态
+  useEffect(() => {
+    const checkTheme = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
+    };
+    
+    // 初始检查
+    checkTheme();
+    
+    // 监听主题变化
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
   
   // 密码验证相关状态
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -350,25 +371,26 @@ export default function Home() {
               {/* 主题切换选项 */}
               <button
                 onClick={() => {
-                  const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-                  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                  const newTheme = isDarkMode ? 'light' : 'dark';
                   if (newTheme === 'dark') {
                     document.documentElement.classList.add('dark');
                     localStorage.setItem('theme', 'dark');
+                    setIsDarkMode(true);
                   } else {
                     document.documentElement.classList.remove('dark');
                     localStorage.setItem('theme', 'light');
+                    setIsDarkMode(false);
                   }
                 }}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between"
               >
                 <div className="flex items-center">
-                  <i className="fas fa-moon mr-2"></i>
+                  <i className={`fas ${isDarkMode ? 'fa-moon' : 'fa-sun'} mr-2`}></i>
                   深色模式
                 </div>
                 <div className="relative inline-block w-10 h-5">
-                  <div className="absolute inset-0 bg-gray-300 dark:bg-blue-600 rounded-full transition-colors duration-200"></div>
-                  <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 dark:translate-x-5"></div>
+                  <div className={`absolute inset-0 rounded-full transition-colors duration-200 ${isDarkMode ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+                  <div className={`absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${isDarkMode ? 'translate-x-5' : 'translate-x-0'}`}></div>
                 </div>
               </button>
               
