@@ -27,6 +27,27 @@ export default function Home() {
   const [userApiUrl, setUserApiUrl] = useState(DEFAULT_API_URL);
   const [ttsProvider, setTtsProvider] = useState<'system' | 'gemini'>('gemini');
   
+  // 设置下拉菜单状态
+  const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
+  
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.settings-dropdown')) {
+        setIsSettingsDropdownOpen(false);
+      }
+    };
+
+    if (isSettingsDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSettingsDropdownOpen]);
+  
   // 密码验证相关状态
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [requiresAuth, setRequiresAuth] = useState(false);
@@ -314,8 +335,70 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-start pt-4 sm:pt-8 lg:pt-16 p-3 sm:p-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       <div className="w-full max-w-3xl">
-        {/* 主题切换按钮 - 固定在右上角 */}
-        <ThemeToggle />
+        {/* 设置下拉菜单 - 固定在右上角 */}
+        <div className="fixed top-6 right-6 z-1000 settings-dropdown">
+          <button
+            onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
+            className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-full w-10 h-10 flex items-center justify-center shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+            title="设置"
+          >
+            <i className="fas fa-cog text-lg"></i>
+          </button>
+          
+          {/* 下拉菜单 */}
+          {isSettingsDropdownOpen && (
+            <div className="absolute top-12 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-2 min-w-48 z-50">
+              {/* 主题切换选项 */}
+              <button
+                onClick={() => {
+                  const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+                  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                  if (newTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                  }
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between"
+              >
+                <div className="flex items-center">
+                  <i className="fas fa-moon mr-2"></i>
+                  深色模式
+                </div>
+                <div className="relative inline-block w-10 h-5">
+                  <div className="absolute inset-0 bg-gray-300 dark:bg-blue-600 rounded-full transition-colors duration-200"></div>
+                  <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 dark:translate-x-5"></div>
+                </div>
+              </button>
+              
+              {/* API设置选项 */}
+              <button
+                onClick={() => {
+                  setIsSettingsModalOpen(true);
+                  setIsSettingsDropdownOpen(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center"
+              >
+                <i className="fas fa-cog mr-2"></i>
+                API设置
+              </button>
+              
+              {/* GitHub仓库选项 */}
+              <a
+                href="https://github.com/cokice/japanese-analyzer"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setIsSettingsDropdownOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 no-underline"
+              >
+                <i className="fab fa-github mr-2"></i>
+                GitHub仓库
+              </a>
+            </div>
+          )}
+        </div>
         
         <header className="text-center mb-6 sm:mb-8 mt-12 sm:mt-16">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-gray-100 transition-colors duration-200">

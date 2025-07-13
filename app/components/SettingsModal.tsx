@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaCog, FaGithub, FaSave } from 'react-icons/fa';
+import { FaSave } from 'react-icons/fa';
 
 interface SettingsModalProps {
   userApiKey: string;
@@ -60,28 +60,7 @@ export default function SettingsModal({
   };
 
   return (
-    <>
-      <button
-        id="settingsButton"
-        title="API 设置"
-        onClick={onModalClose}
-        className="fixed top-6 right-6 z-1000 bg-white text-[#007AFF] border border-[#007AFF] rounded-full w-10 h-10 flex items-center justify-center shadow-md hover:bg-gray-50 transition-all"
-      >
-        <FaCog />
-      </button>
-
-      <a
-        id="githubButton"
-        href="https://github.com/cokice/japanese-analyzer"
-        target="_blank"
-        rel="noopener noreferrer"
-        title="GitHub 仓库"
-        className="fixed top-6 right-20 z-1000 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-300 border border-gray-800 dark:border-gray-600 rounded-full w-10 h-10 flex items-center justify-center shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-      >
-        <FaGithub />
-      </a>
-
-      <div 
+    <div 
         id="settingsModal" 
         className="settings-modal" 
         style={{ display: isModalOpen ? 'flex' : 'none' }}
@@ -168,6 +147,5 @@ export default function SettingsModal({
           </div>
         </div>
       </div>
-    </>
   );
 } 
