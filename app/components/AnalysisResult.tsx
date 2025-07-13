@@ -272,28 +272,8 @@ export default function AnalysisResult({
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
-                  try {
-                    // 首先尝试使用现代clipboard API
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                      navigator.clipboard.writeText(htmlContent).then(() => {
-                        setIsCopied(true);
-                        setTimeout(() => setIsCopied(false), 2000);
-                        setShowHtmlModal(false);
-                      }).catch(() => {
-                        // clipboard API失败，使用fallback
-                        copyWithFallback();
-                      });
-                    } else {
-                      // 直接使用fallback方法
-                      copyWithFallback();
-                    }
-                  } catch (err) {
-                    copyWithFallback();
-                  }
-                  
-                  function copyWithFallback() {
+                  const copyWithFallback = () => {
                     try {
-                      // 找到弹窗中的textarea并复制
                       const modal = document.querySelector('.fixed.inset-0');
                       const textarea = modal?.querySelector('textarea');
                       if (textarea) {
@@ -309,9 +289,25 @@ export default function AnalysisResult({
                           alert('复制失败，请手动选择文本复制');
                         }
                       }
-                    } catch (fallbackErr) {
+                    } catch {
                       alert('复制失败，请手动选择文本复制');
                     }
+                  };
+
+                  try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                      navigator.clipboard.writeText(htmlContent).then(() => {
+                        setIsCopied(true);
+                        setTimeout(() => setIsCopied(false), 2000);
+                        setShowHtmlModal(false);
+                      }).catch(() => {
+                        copyWithFallback();
+                      });
+                    } else {
+                      copyWithFallback();
+                    }
+                  } catch {
+                    copyWithFallback();
                   }
                 }}
                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
