@@ -105,10 +105,23 @@ export default function AnalysisResult({
 
   const formatExplanation = (text: string | undefined): { __html: string } => {
     if (!text) return { __html: '' };
-    const formattedText = text
+    
+    let formattedText = text
       .replace(/\n/g, '<br />')
       .replace(/【([^】]+)】/g, '<strong class="text-indigo-600">$1</strong>')
       .replace(/「([^」]+)」/g, '<strong class="text-indigo-600">$1</strong>');
+    
+    // 为日语例句添加furigana支持
+    // 匹配"漢字（ひらがな）"格式并转换为ruby标签（全角括号）
+    formattedText = formattedText.replace(/([一-龯々〇ヶ]+)（([ぁ-ゖゝゞァ-ヺー]+)）/g, '<ruby>$1<rt>$2</rt></ruby>');
+    
+    // 匹配"漢字(ひらがな)"格式（半角括号）
+    formattedText = formattedText.replace(/([一-龯々〇ヶ]+)\(([ぁ-ゖゝゞァ-ヺー]+)\)/g, '<ruby>$1<rt>$2</rt></ruby>');
+    
+    // 也支持片假名读音
+    formattedText = formattedText.replace(/([一-龯々〇ヶ]+)（([ァ-ヺー]+)）/g, '<ruby>$1<rt>$2</rt></ruby>');
+    formattedText = formattedText.replace(/([一-龯々〇ヶ]+)\(([ァ-ヺー]+)\)/g, '<ruby>$1<rt>$2</rt></ruby>');
+    
     return { __html: formattedText };
   };
 
