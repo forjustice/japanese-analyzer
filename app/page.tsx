@@ -5,7 +5,6 @@ import InputSection from './components/InputSection';
 import AnalysisResult from './components/AnalysisResult';
 import TranslationSection from './components/TranslationSection';
 import SettingsModal from './components/SettingsModal';
-import ThemeToggle from './components/ThemeToggle';
 import LoginModal from './components/LoginModal';
 import { analyzeSentence, TokenData, DEFAULT_API_URL, streamAnalyzeSentence } from './services/api';
 import { FaExclamationTriangle, FaExclamationCircle } from 'react-icons/fa';
