@@ -117,7 +117,7 @@ export default function AnalysisResult({
 
     if (showFurigana) {
       isHtml = true;
-      contentToCopy = tokens.map((token, index) => {
+      contentToCopy = tokens.map((token) => {
         if (token.pos === '改行') return '<br>';
         const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号';
         
@@ -136,156 +136,30 @@ export default function AnalysisResult({
 
     console.log('复制内容:', showFurigana ? 'HTML格式' : '纯文本格式');
 
-    // 检查是否支持现代Clipboard API
-    const hasClipboardAPI = navigator.clipboard && navigator.clipboard.write && navigator.clipboard.writeText;
-    
-    if (hasClipboardAPI) {
-      try {
-        if (isHtml) {
-          console.log('尝试使用Clipboard API复制HTML...');
-          const blobHtml = new Blob([contentToCopy], { type: 'text/html' });
-          const blobText = new Blob([plainText], { type: 'text/plain' });
-          await navigator.clipboard.write([new ClipboardItem({ 
-            'text/html': blobHtml, 
-            'text/plain': blobText 
-          })]);
-          console.log('Clipboard API复制成功');
-        } else {
-          console.log('复制纯文本...');
-          await navigator.clipboard.writeText(contentToCopy);
-        }
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
-        return;
-      } catch (e) {
-        console.warn('Clipboard API 失败，回退到旧方法。', e);
-      }
-    } else {
-      console.log('Clipboard API 不可用，直接使用回退方案');
-    }
-
-    // 回退方案
-    if (isHtml) {
-        console.log('使用回退方案复制HTML...');
-        console.log('HTML内容:', contentToCopy);
-        
-        // 方法1: 尝试使用可编辑div复制HTML格式
-        try {
-          const div = document.createElement('div');
-          div.innerHTML = contentToCopy;
-          div.style.position = 'fixed';
-          div.style.left = '-9999px';
-          div.style.top = '-9999px';
-          div.contentEditable = 'true';
-          document.body.appendChild(div);
-          
-          // 设置焦点并选择所有内容
-          div.focus();
-          const selection = window.getSelection();
-          const range = document.createRange();
-          range.selectNodeContents(div);
-          selection?.removeAllRanges();
-          selection?.addRange(range);
-          
-          console.log('选择的内容:', selection?.toString());
-          console.log('div innerHTML:', div.innerHTML);
-          
-          const success = document.execCommand('copy');
-          console.log('第一次复制尝试 success:', success);
-          
-          document.body.removeChild(div);
-          
-          if (success) {
-            setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000);
-            return;
-          }
-        } catch (err1) {
-          console.warn('方法1失败:', err1);
-        }
-        
-        // 方法2: 如果第一种方法失败，提示用户手动复制HTML
-        console.log('方法1失败，提供HTML代码供用户手动复制');
-        
-        // 创建一个弹窗显示HTML代码
-        const confirmed = confirm(
-          `自动复制HTML格式失败。点击确定查看HTML代码，您可以手动复制：\n\n${contentToCopy.substring(0, 100)}${contentToCopy.length > 100 ? '...' : ''}`
-        );
-        
-        if (confirmed) {
-          // 显示完整的HTML代码
-          const htmlWindow = window.open('', '_blank', 'width=600,height=400');
-          if (htmlWindow) {
-            htmlWindow.document.write(`
-              <html>
-                <head>
-                  <title>Ruby HTML 代码</title>
-                  <style>
-                    body { font-family: monospace; padding: 20px; }
-                    .html-code { background: #f5f5f5; padding: 15px; border: 1px solid #ddd; margin: 10px 0; word-break: break-all; }
-                    .preview { border: 1px solid #ccc; padding: 15px; margin: 10px 0; }
-                    button { padding: 10px 20px; margin: 5px; cursor: pointer; }
-                  </style>
-                </head>
-                <body>
-                  <h2>带Ruby标签的HTML代码：</h2>
-                  <div class="html-code" id="htmlCode">${contentToCopy}</div>
-                  <button onclick="navigator.clipboard.writeText(document.getElementById('htmlCode').textContent).then(() => alert('HTML代码已复制到剪贴板！')).catch(() => alert('复制失败，请手动选择复制'))">复制HTML代码</button>
-                  
-                  <h2>预览效果：</h2>
-                  <div class="preview">${contentToCopy}</div>
-                  
-                  <h2>使用说明：</h2>
-                  <p>1. 点击"复制HTML代码"按钮复制HTML格式的文本</p>
-                  <p>2. 在支持HTML的编辑器中粘贴（如富文本编辑器、HTML编辑器等）</p>
-                  <p>3. Ruby标签将正确显示假名注音</p>
-                </body>
-              </html>
-            `);
-            htmlWindow.document.close();
-          }
-          setIsCopied(true);
-          setTimeout(() => setIsCopied(false), 2000);
-          return;
-        }
-        
-        // 方法3: 最后回退到纯文本
-        console.log('HTML复制失败，使用纯文本回退');
-        const textarea = document.createElement('textarea');
-        textarea.value = plainText;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        try {
-          document.execCommand('copy');
-          setIsCopied(true);
-          setTimeout(() => setIsCopied(false), 2000);
-        } catch (textErr) {
-          console.error('纯文本复制也失败:', textErr);
-          alert('复制功能在此浏览器中不受支持。');
-        } finally {
-          document.body.removeChild(textarea);
-        }
+    try {
+      if (isHtml) {
+        // 对于HTML格式，当前环境不支持，直接显示HTML代码供用户复制
+        alert(`由于浏览器限制，无法直接复制HTML格式。\n\nHTML代码已在控制台显示，您可以复制使用：\n\n${contentToCopy}`);
+        console.log('=== Ruby HTML 代码 ===');
+        console.log(contentToCopy);
+        console.log('=== 复制上面的HTML代码在支持Ruby标签的编辑器中使用 ===');
       } else {
-        // 纯文本复制的原有逻辑
+        // 复制纯文本
         const textarea = document.createElement('textarea');
         textarea.value = contentToCopy;
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
         document.body.appendChild(textarea);
         textarea.select();
-        try {
-          document.execCommand('copy');
-          setIsCopied(true);
-          setTimeout(() => setIsCopied(false), 2000);
-        } catch (err) {
-          console.error('后备复制方案失败:', err);
-          alert('复制功能在此浏览器中不受支持。');
-        } finally {
-          document.body.removeChild(textarea);
-        }
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
       }
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error('复制失败:', err);
+      alert('复制功能不可用');
+    }
   };
 
   const WordDetailContent = () => wordDetail && (
