@@ -6,7 +6,9 @@ import AnalysisResult from './components/AnalysisResult';
 import TranslationSection from './components/TranslationSection';
 import SettingsModal from './components/SettingsModal';
 import LoginModal from './components/LoginModal';
+import HistoryModal from './components/HistoryModal';
 import { analyzeSentence, TokenData, DEFAULT_API_URL, streamAnalyzeSentence } from './services/api';
+import { saveAnalysisToHistory, AnalysisHistoryItem } from './utils/history';
 import { FaExclamationTriangle, FaExclamationCircle } from 'react-icons/fa';
 
 export default function Home() {
@@ -19,6 +21,7 @@ export default function Home() {
   const [isJsonParseError, setIsJsonParseError] = useState(false);
   const [translationTrigger, setTranslationTrigger] = useState(0);
   const [showFurigana, setShowFurigana] = useState(true);
+  const [currentTranslation, setCurrentTranslation] = useState('');
   
   // API设置相关状态
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -29,6 +32,9 @@ export default function Home() {
   // 设置下拉菜单状态
   const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // 历史记录模态框状态
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -301,6 +307,8 @@ export default function Home() {
               if (tokens.length > 0) {
                 setAnalyzedTokens(tokens);
                 setIsJsonParseError(false);
+                // 保存到历史记录
+                saveAnalysisToHistory(text, tokens, currentTranslation);
               } else if (chunk && chunk.includes('{') && chunk.includes('"word":')) {
                 // 最终内容仍然解析失败
                 setIsJsonParseError(true);
@@ -319,6 +327,8 @@ export default function Home() {
         // 使用传统API进行分析
         const tokens = await analyzeSentence(text, userApiKey, userApiUrl);
         setAnalyzedTokens(tokens);
+        // 保存到历史记录
+        saveAnalysisToHistory(text, tokens, currentTranslation);
         setIsAnalyzing(false);
       }
     } catch (error) {
@@ -327,6 +337,17 @@ export default function Home() {
       setAnalyzedTokens([]);
       setIsAnalyzing(false);
     }
+  };
+
+  // 处理历史记录选择
+  const handleSelectHistory = (historyItem: AnalysisHistoryItem) => {
+    setCurrentSentence(historyItem.originalText);
+    setAnalyzedTokens(historyItem.tokens);
+    if (historyItem.translation) {
+      setCurrentTranslation(historyItem.translation);
+    }
+    // 触发翻译更新（如果有翻译的话）
+    setTranslationTrigger(Date.now());
   };
 
   // 如果需要认证但未认证，只显示登录界面
@@ -392,6 +413,18 @@ export default function Home() {
                   <div className={`absolute inset-0 rounded-full transition-colors duration-200 ${isDarkMode ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
                   <div className={`absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${isDarkMode ? 'translate-x-5' : 'translate-x-0'}`}></div>
                 </div>
+              </button>
+              
+              {/* 历史记录选项 */}
+              <button
+                onClick={() => {
+                  setIsHistoryModalOpen(true);
+                  setIsSettingsDropdownOpen(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center"
+              >
+                <i className="fas fa-history mr-2"></i>
+                历史记录
               </button>
               
               {/* API设置选项 */}
@@ -504,6 +537,7 @@ export default function Home() {
               userApiUrl={userApiUrl}
               useStream={useStream}
               trigger={translationTrigger}
+              onTranslationUpdate={setCurrentTranslation}
             />
           )}
         </main>
@@ -523,6 +557,13 @@ export default function Home() {
         onSaveSettings={handleSaveSettings}
         isModalOpen={isSettingsModalOpen}
         onModalClose={() => setIsSettingsModalOpen(!isSettingsModalOpen)}
+      />
+      
+      {/* 历史记录模态框 */}
+      <HistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        onSelectHistory={handleSelectHistory}
       />
     </div>
   );
