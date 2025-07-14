@@ -29,11 +29,12 @@ export async function POST(request: NextRequest) {
       jsCurrentTime: new Date().toISOString(),
       jsTimezoneOffset: new Date().getTimezoneOffset(),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      mysqlCurrentTime: null as string | null,
     };
 
     // 获取MySQL时间
-    const mysqlTimeResult = await db.query('SELECT NOW() as mysql_time');
-    timeInfo.mysqlCurrentTime = mysqlTimeResult[0]?.mysql_time;
+    const mysqlTimeResult = await db.query<{ mysql_time: string }>('SELECT NOW() as mysql_time');
+    timeInfo.mysqlCurrentTime = mysqlTimeResult[0]?.mysql_time || null;
 
     // 查询所有相关验证码
     const allCodes = await db.query(`

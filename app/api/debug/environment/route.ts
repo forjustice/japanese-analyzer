@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { db, initDatabase } from '../../../lib/database';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // 收集环境信息
     const environmentInfo = {
@@ -72,13 +72,13 @@ export async function GET(request: NextRequest) {
     // 测试时区和时间
     const timeTest = {
       jsDate: new Date().toISOString(),
-      mysqlNow: null as any,
+      mysqlNow: null as { current_time: string } | { error: string } | null,
       timezoneOffset: new Date().getTimezoneOffset(),
     };
 
     try {
-      const mysqlTimeResult = await db.query('SELECT NOW() as current_time');
-      timeTest.mysqlNow = mysqlTimeResult[0];
+      const mysqlTimeResult = await db.query<{ current_time: string }>('SELECT NOW() as current_time');
+      timeTest.mysqlNow = mysqlTimeResult[0] || null;
     } catch (error) {
       timeTest.mysqlNow = { error: (error as Error).message };
     }
