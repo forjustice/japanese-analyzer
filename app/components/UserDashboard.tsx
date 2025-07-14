@@ -4,15 +4,16 @@ import { useState, useEffect } from 'react';
 import { FaUser, FaChartLine, FaTimes, FaCalendarAlt, FaRobot, FaLanguage, FaVolumeUp, FaFileImage } from 'react-icons/fa';
 
 interface UserTokenStats {
-  totalTokens30Days: number;
+  totalTokensCurrentMonth: number;
   analyzeTokens: number;
   translateTokens: number;
   ttsTokens: number;
   ocrTokens: number;
-  totalRequests30Days: number;
-  daysRemaining: number;
-  trialEndDate: string;
+  totalRequestsCurrentMonth: number;
+  daysRemainingInMonth: number;
+  currentMonthEnd: string;
   registrationDate: string;
+  monthlyLimit: number;
 }
 
 interface DailyStats {
@@ -41,7 +42,10 @@ export default function UserDashboard({ isOpen, onClose, userInfo }: UserDashboa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const TOKEN_LIMIT = 100000; // 30天内的TOKEN限制
+  // 从环境变量或stats中获取月度TOKEN限制
+  const getTokenLimit = () => {
+    return stats?.monthlyLimit || 150000;
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -81,7 +85,8 @@ export default function UserDashboard({ isOpen, onClose, userInfo }: UserDashboa
 
   const getUsagePercentage = () => {
     if (!stats) return 0;
-    return Math.min((stats.totalTokens30Days / TOKEN_LIMIT) * 100, 100);
+    const limit = getTokenLimit();
+    return Math.min((stats.totalTokensCurrentMonth / limit) * 100, 100);
   };
 
   const getUsageColor = () => {
@@ -93,11 +98,13 @@ export default function UserDashboard({ isOpen, onClose, userInfo }: UserDashboa
 
   const aggregateDailyStats = (): DailyStats[] => {
     if (!dailyStats.length) {
-      // 如果没有数据，返回最近7天的空数据
+      // 如果没有数据，返回本月前几天的空数据（最多显示7天）
       const emptyDays: DailyStats[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
+      const now = new Date();
+      const daysToShow = Math.min(7, now.getDate());
+      
+      for (let i = daysToShow - 1; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
         emptyDays.push({
           date: date.toISOString().split('T')[0],
           totalTokens: 0,
@@ -174,10 +181,10 @@ export default function UserDashboard({ isOpen, onClose, userInfo }: UserDashboa
               {/* TOKEN使用量概览 */}
               {stats && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* 30天试用统计 */}
+                  {/* 每月统计 */}
                   <div className="bg-white dark:bg-gray-700 rounded-lg p-6 border border-gray-200 dark:border-gray-600">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">30天试用统计</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">当月使用统计</h3>
                       <FaCalendarAlt className="text-blue-600" />
                     </div>
                     
@@ -186,7 +193,7 @@ export default function UserDashboard({ isOpen, onClose, userInfo }: UserDashboa
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-sm text-gray-600 dark:text-gray-400">TOKEN使用量</span>
                         <span className={`font-bold ${getUsageColor()}`}>
-                          {stats.totalTokens30Days.toLocaleString()} / {TOKEN_LIMIT.toLocaleString()}
+                          {stats.totalTokensCurrentMonth.toLocaleString()} / {getTokenLimit().toLocaleString()}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
@@ -203,20 +210,20 @@ export default function UserDashboard({ isOpen, onClose, userInfo }: UserDashboa
                       </p>
                     </div>
 
-                    {/* 剩余天数 */}
+                    {/* 本月统计 */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="text-center p-3 bg-gray-50 dark:bg-gray-600 rounded-lg">
-                        <p className="text-2xl font-bold text-blue-600">{stats.daysRemaining}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">剩余天数</p>
+                        <p className="text-2xl font-bold text-blue-600">{stats.daysRemainingInMonth}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">本月剩余天数</p>
                       </div>
                       <div className="text-center p-3 bg-gray-50 dark:bg-gray-600 rounded-lg">
-                        <p className="text-2xl font-bold text-green-600">{stats.totalRequests30Days}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">总请求次数</p>
+                        <p className="text-2xl font-bold text-green-600">{stats.totalRequestsCurrentMonth}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">本月请求次数</p>
                       </div>
                     </div>
 
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-                      试用期至: {formatDate(stats.trialEndDate)}
+                      本月结束: {formatDate(stats.currentMonthEnd)}
                     </p>
                   </div>
 
@@ -272,10 +279,10 @@ export default function UserDashboard({ isOpen, onClose, userInfo }: UserDashboa
                 </div>
               )}
 
-              {/* 最近使用趋势 */}
+              {/* 本月使用趋势 */}
               {aggregateDailyStats().length > 0 && (
                 <div className="bg-white dark:bg-gray-700 rounded-lg p-6 border border-gray-200 dark:border-gray-600">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">最近7天使用趋势</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">本月使用趋势</h3>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -303,10 +310,10 @@ export default function UserDashboard({ isOpen, onClose, userInfo }: UserDashboa
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                 <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">使用说明</h4>
                 <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                  <li>• 新用户可在注册后30天内免费使用{TOKEN_LIMIT.toLocaleString()}个TOKEN</li>
+                  <li>• 每月可免费使用{stats ? getTokenLimit().toLocaleString() : '150,000'}个TOKEN</li>
                   <li>• TOKEN消耗包括所有AI功能：句子解析、翻译、语音合成、文字识别等</li>
                   <li>• 使用量实时更新，建议合理分配使用</li>
-                  <li>• 试用期结束后如需继续使用，请联系客服</li>
+                  <li>• 每月1号自动重置使用量，如需更多额度请联系客服</li>
                 </ul>
               </div>
             </div>

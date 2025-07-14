@@ -113,5 +113,5 @@ function formatDailyStats(dailyStats: Array<{
   // 转换为数组并按日期排序
   return Object.values(statsMap)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 30); // 最多返回30天的数据
+    .slice(0, 31); // 最多返回当月31天的数据
 }
