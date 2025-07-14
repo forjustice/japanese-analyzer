@@ -17,7 +17,7 @@ export class UserModel {
 
   // 创建新用户
   static async create(input: CreateUserInput): Promise<number> {
-    const { email, password, username } = input;
+    const { email, password, username, is_verified = false } = input;
     
     // 检查邮箱是否已存在
     const existingUser = await this.findByEmail(email);
@@ -31,10 +31,10 @@ export class UserModel {
 
     const sql = `
       INSERT INTO users (email, password_hash, username, is_verified, is_active)
-      VALUES (?, ?, ?, FALSE, TRUE)
+      VALUES (?, ?, ?, ?, TRUE)
     `;
     
-    return await db.insert(sql, [email, passwordHash, username]);
+    return await db.insert(sql, [email, passwordHash, username, is_verified]);
   }
 
   // 验证密码
