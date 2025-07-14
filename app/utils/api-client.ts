@@ -181,11 +181,21 @@ export class ApiClient {
       ...config.headers
     };
 
+    // 为长文本解析设置更长的超时时间
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.warn('Streaming request timeout after 5 minutes');
+      controller.abort();
+    }, 300000); // 5分钟超时
+
     const response = await fetch(url, {
       method: config.method,
       headers,
       body: config.body ? JSON.stringify(config.body) : undefined,
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorData = await response.text();

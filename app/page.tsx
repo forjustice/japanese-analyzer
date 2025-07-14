@@ -148,10 +148,13 @@ export default function Home() {
     setTranslationTrigger(Date.now());
     
     let accumulatedJson = '';
+    let chunkCount = 0;
     try {
       await analyzeSentence(text, (chunk) => {
-        console.log("Received chunk:", chunk);
+        chunkCount++;
+        console.log(`Frontend chunk ${chunkCount} (${chunk.length} chars):`, chunk.substring(0, 50) + "...");
         accumulatedJson += chunk;
+        console.log(`Accumulated so far: ${accumulatedJson.length} characters`);
         // We don't parse here anymore to avoid errors with incomplete data.
         // We will parse only once at the very end.
       });
@@ -209,6 +212,16 @@ export default function Home() {
           try {
             finalTokens = JSON.parse(cleanedJson);
             console.log("Successfully parsed JSON array with", finalTokens.length, "tokens");
+            
+            // 检查是否有结束标记
+            const hasEndMarker = finalTokens.some((token: TokenData) => token.word === "END_OF_ANALYSIS");
+            if (hasEndMarker) {
+              console.log("✅ Found END_OF_ANALYSIS marker - parsing is complete");
+              // 移除结束标记
+              finalTokens = finalTokens.filter((token: TokenData) => token.word !== "END_OF_ANALYSIS");
+            } else {
+              console.warn("⚠️ No END_OF_ANALYSIS marker found - parsing may be incomplete");
+            }
           } catch (parseError) {
             console.warn('Direct JSON parsing failed:', parseError);
             // 如果直接解析失败，尝试逐个提取对象
@@ -229,6 +242,15 @@ export default function Home() {
             if (jsonObjects.length > 0) {
               finalTokens = jsonObjects;
               console.log("Extracted", jsonObjects.length, "valid tokens from partial JSON");
+              
+              // 检查是否有结束标记
+              const hasEndMarker = finalTokens.some((token: TokenData) => token.word === "END_OF_ANALYSIS");
+              if (hasEndMarker) {
+                console.log("✅ Found END_OF_ANALYSIS marker in extracted tokens - parsing is complete");
+                finalTokens = finalTokens.filter((token: TokenData) => token.word !== "END_OF_ANALYSIS");
+              } else {
+                console.warn("⚠️ No END_OF_ANALYSIS marker in extracted tokens - parsing may be incomplete");
+              }
             } else {
               throw new Error("无法从AI响应中提取有效的JSON数据");
             }
@@ -252,6 +274,15 @@ export default function Home() {
           if (jsonObjects.length > 0) {
             finalTokens = jsonObjects;
             console.log("Extracted", jsonObjects.length, "valid tokens without array format");
+            
+            // 检查是否有结束标记
+            const hasEndMarker = finalTokens.some((token: TokenData) => token.word === "END_OF_ANALYSIS");
+            if (hasEndMarker) {
+              console.log("✅ Found END_OF_ANALYSIS marker - parsing is complete");
+              finalTokens = finalTokens.filter((token: TokenData) => token.word !== "END_OF_ANALYSIS");
+            } else {
+              console.warn("⚠️ No END_OF_ANALYSIS marker found - parsing may be incomplete");
+            }
           } else {
             throw new Error("无法从AI响应中提取有效的JSON数据");
           }

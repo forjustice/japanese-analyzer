@@ -58,7 +58,7 @@ export async function analyzeSentence(
 
 输入文本：${sentence}
 
-要求：
+重要要求：
 1. 解析文本中的每一个词汇，包括标点符号
 2. 返回JSON数组格式，每个对象包含4个字段:"word", "pos", "furigana", "romaji"
 3. 助动词与动词结合（如"食べた"为一个词）
@@ -66,10 +66,11 @@ export async function analyzeSentence(
 5. 确保输出完整的JSON数组，必须以']'结束
 6. 不要添加任何解释文字，只输出JSON
 7. 无论文本多长，都必须完整解析每一个字符，不能因为长度而截断
+8. 解析完成后，在JSON数组末尾添加特殊标记：{"word": "END_OF_ANALYSIS", "pos": "标记", "furigana": "", "romaji": ""}
 
-重要：必须完整解析所有输入内容，即使文本很长也不能遗漏任何部分！
+关键：这是一个完整性测试，必须解析所有输入内容并添加结束标记！如果没有结束标记，说明解析不完整！
 
-JSON数组：`,
+开始输出JSON数组：`,
       model: MODEL_NAME
     })
   });
@@ -85,14 +86,20 @@ JSON数组：`,
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  let chunkCount = 0;
+  let totalChunkSize = 0;
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) {
+      console.log(`Stream completed. Total chunks: ${chunkCount}, Total size: ${totalChunkSize} bytes`);
       break;
     }
     
+    chunkCount++;
+    totalChunkSize += value.length;
     const chunk = decoder.decode(value, { stream: true });
+    console.log(`Chunk ${chunkCount} (${value.length} bytes):`, chunk.substring(0, 100) + "...");
 
     // 处理Gemini流式响应
     // 解析每个JSON chunk并提取text内容
