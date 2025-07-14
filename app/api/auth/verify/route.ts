@@ -3,8 +3,9 @@ import { UserModel } from '../../../lib/models/User';
 import { VerificationCodeModel } from '../../../lib/models/VerificationCode';
 import { emailService } from '../../../lib/services/emailService';
 import { AuthUtils } from '../../../lib/utils/auth';
-import { initDatabase } from '../../../lib/database';
-import { UserProfile } from '../../../lib/types/user';
+import { initDatabase, db } from '../../../lib/database';
+import type { UserProfile } from '../../../lib/types/user';
+import bcrypt from 'bcryptjs';
 
 // 验证码验证API
 export async function POST(request: NextRequest) {
@@ -26,109 +27,101 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(AuthUtils.formatErrorResponse('验证码格式不正确'), { status: 400 });
     }
 
-    // Verify the code first for all types
+    // 首先验证验证码但不标记为已使用
     const verificationCode = await VerificationCodeModel.verify(email.toLowerCase(), code, type);
     if (!verificationCode) {
       return NextResponse.json(AuthUtils.formatErrorResponse('验证码无效、已过期或已使用'), { status: 400 });
     }
 
+    console.log('验证码验证通过，验证码ID:', verificationCode.id);
+
     switch (type) {
       case 'registration':
-        // 完整的注册流程验证
         console.log('开始注册验证流程，邮箱:', email);
         
-        // 1. 验证所有必填参数
+        // 1. 先进行所有前置验证（不涉及数据库修改）
         if (!password) {
           return NextResponse.json(AuthUtils.formatErrorResponse('密码为必填项'), { status: 400 });
         }
         
-        // 2. 验证密码强度
         const passwordValidation = AuthUtils.validatePassword(password);
         if (!passwordValidation.isValid) {
           return NextResponse.json(AuthUtils.formatErrorResponse('密码不符合要求', { errors: passwordValidation.errors }), { status: 400 });
         }
 
-        // 3. 验证用户名格式
         if (username && !AuthUtils.isValidUsername(username)) {
           return NextResponse.json(AuthUtils.formatErrorResponse('用户名格式不正确'), { status: 400 });
         }
 
-        // 4. 检查邮箱是否已被注册
+        // 2. 检查邮箱是否已被注册
         const existingUser = await UserModel.findByEmail(email.toLowerCase());
         if (existingUser && existingUser.is_verified) {
           return NextResponse.json(AuthUtils.formatErrorResponse('该邮箱已被注册'), { status: 409 });
         }
         
-        // 5. 所有验证通过，标记验证码为已使用
+        console.log('所有前置验证通过，开始数据库事务');
+        
+        // 3. 使用数据库事务确保原子性
+        const connection = await db.beginTransaction();
+        
         try {
-          await VerificationCodeModel.markAsUsed(verificationCode.id);
+          // 3.1 标记验证码为已使用
+          await connection.execute('UPDATE verification_codes SET is_used = TRUE WHERE id = ?', [verificationCode.id]);
           console.log('验证码标记为已使用');
-        } catch (error) {
-          console.error('标记验证码失败:', error);
-          return NextResponse.json(AuthUtils.formatErrorResponse('验证码处理失败'), { status: 500 });
-        }
-
-        // 6. 清理可能存在的未验证用户
-        if (existingUser && !existingUser.is_verified) {
-          try {
-            await UserModel.hardDelete(existingUser.id);
+          
+          // 3.2 清理可能存在的未验证用户
+          if (existingUser && !existingUser.is_verified) {
+            await connection.execute('DELETE FROM users WHERE id = ?', [existingUser.id]);
             console.log('删除未验证的用户:', existingUser.id);
-          } catch (error) {
-            console.error('删除未验证用户失败:', error);
           }
-        }
-
-        // 7. 创建用户（只在所有验证通过后）
-        let userId: number;
-        try {
-          userId = await UserModel.create({
-            email: email.toLowerCase(),
-            password,
-            username,
-            is_verified: true
-          });
+          
+          // 3.3 创建用户
+          const saltRounds = 12;
+          const passwordHash = await bcrypt.hash(password, saltRounds);
+          
+          const [userResult] = await connection.execute(
+            'INSERT INTO users (email, password_hash, username, is_verified, is_active) VALUES (?, ?, ?, TRUE, TRUE)',
+            [email.toLowerCase(), passwordHash, username]
+          );
+          
+          const userId = (userResult as { insertId: number }).insertId;
           console.log('用户创建成功，用户ID:', userId);
-        } catch (error: unknown) {
-          console.error('用户创建失败:', error);
-          return NextResponse.json(AuthUtils.formatErrorResponse('用户创建失败，请重试'), { status: 500 });
-        }
-
-        // 8. 生成token和用户资料
-        let token: string;
-        let userProfile: UserProfile | null;
-        try {
-          token = AuthUtils.generateToken({ userId, email: email.toLowerCase() });
-          await UserModel.updateLastLogin(userId);
-          userProfile = await UserModel.getProfile(userId);
-          console.log('注册成功，用户资料:', userProfile);
-        } catch (error) {
-          console.error('生成token或获取用户资料失败:', error);
-          // 如果这一步失败，需要删除刚创建的用户
-          try {
-            await UserModel.hardDelete(userId);
-            console.log('回滚：删除用户', userId);
-          } catch (rollbackError) {
-            console.error('回滚失败:', rollbackError);
+          
+          // 3.4 更新最后登录时间
+          await connection.execute('UPDATE users SET last_login_at = NOW() WHERE id = ?', [userId]);
+          
+          // 3.5 提交事务
+          await db.commitTransaction(connection);
+          console.log('数据库事务提交成功');
+          
+          // 4. 生成token和获取用户资料（事务外）
+          const token = AuthUtils.generateToken({ userId, email: email.toLowerCase() });
+          const userProfile: UserProfile | null = await UserModel.getProfile(userId);
+          
+          // 5. 发送欢迎邮件（可选）
+          if (emailService.isAvailable()) {
+            try {
+              await emailService.sendWelcomeEmail(email, username);
+              console.log('欢迎邮件发送成功');
+            } catch (emailError) {
+              console.error('欢迎邮件发送失败:', emailError);
+            }
           }
-          return NextResponse.json(AuthUtils.formatErrorResponse('注册过程中发生错误'), { status: 500 });
+          
+          // 6. 返回成功结果
+          return NextResponse.json(AuthUtils.formatSuccessResponse({
+            message: '注册成功，欢迎加入日语分析器！',
+            token,
+            user: userProfile
+          }));
+          
+        } catch (transactionError) {
+          // 回滚事务
+          await db.rollbackTransaction(connection);
+          console.error('数据库事务失败，已回滚:', transactionError);
+          
+          return NextResponse.json(AuthUtils.formatErrorResponse('注册过程中发生错误，请重试'), { status: 500 });
         }
-
-        // 9. 发送欢迎邮件（非关键步骤，失败不影响注册）
-        if (emailService.isAvailable()) {
-          try {
-            await emailService.sendWelcomeEmail(email, username);
-            console.log('欢迎邮件发送成功');
-          } catch (emailError) {
-            console.error('欢迎邮件发送失败:', emailError);
-          }
-        }
-
-        // 10. 返回成功结果
-        return NextResponse.json(AuthUtils.formatSuccessResponse({
-          message: '注册成功，欢迎加入日语分析器！',
-          token,
-          user: userProfile
-        }));
 
       case 'password_reset':
         // This logic remains mostly the same
