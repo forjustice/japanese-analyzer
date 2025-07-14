@@ -1,34 +1,29 @@
 import mysql from 'mysql2/promise';
 
-// 清理后的数据库连接配置 - 移除所有无效选项
-const createDbConfig = () => {
-  const baseConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '3306'),
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'japanese_analyzer',
-    charset: 'utf8mb4',
-    connectionLimit: process.env.VERCEL_ENV ? 5 : 10,
-    timezone: '+00:00',
-    connectTimeout: process.env.VERCEL_ENV ? 30000 : 60000,
-  };
-
+// 数据库连接配置
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '3306'),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'japanese_analyzer',
+  charset: 'utf8mb4',
+  // 连接池配置 - 针对Vercel无服务器环境优化
+  connectionLimit: process.env.VERCEL_ENV ? 5 : 10,
   // 只有明确设置为true时才启用SSL
-  if (process.env.DB_SSL === 'true') {
-    return {
-      ...baseConfig,
-      ssl: {
-        rejectUnauthorized: false
-      }
-    };
-  }
-
-  return baseConfig;
+  ...(process.env.DB_SSL === 'true' ? {
+    ssl: {
+      rejectUnauthorized: false
+    }
+  } : {}),
+  // 时区配置
+  timezone: '+00:00',
+  // 连接超时配置（使用正确的选项名）
+  connectTimeout: process.env.VERCEL_ENV ? 30000 : 60000
 };
 
 // 创建连接池
-const pool = mysql.createPool(createDbConfig());
+const pool = mysql.createPool(dbConfig);
 
 // 数据库连接类
 export class Database {
