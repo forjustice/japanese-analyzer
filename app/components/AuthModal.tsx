@@ -179,6 +179,8 @@ export default function AuthModal({
             body: JSON.stringify({
               email: formData.email,
               code: formData.code,
+              password: formData.password,
+              username: formData.username,
               type: 'registration'
             })
           });
@@ -345,9 +347,7 @@ export default function AuthModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          username: formData.username || undefined
+          email: formData.email
         })
       });
       

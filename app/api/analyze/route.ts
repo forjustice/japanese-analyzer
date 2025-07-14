@@ -3,11 +3,9 @@ import { ApiClient } from '../../utils/api-client';
 import { tokenUsageService } from '../../lib/services/tokenUsageService';
 import { authMiddleware } from '../../lib/utils/auth';
 
-// API密钥从环境变量获取，支持逗号分隔的多个密钥
 const API_KEY = process.env.API_KEY || '';
-const API_URL = process.env.API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:streamGenerateContent';
+const API_URL = process.env.API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent';
 
-// 创建API客户端实例
 const apiClient = new ApiClient(API_KEY);
 
 export async function POST(req: NextRequest) {
@@ -20,23 +18,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: { message: '缺少必要的prompt参数' } }, { status: 400 });
     }
 
-    // 尝试获取当前用户信息（用于统计，但不强制要求认证）
     const authResult = await authMiddleware(false)(req);
     const currentUser = authResult.user;
-
-    console.log('Analyze API - 用户信息:', {
-      hasUser: !!currentUser,
-      userId: currentUser?.userId,
-      email: currentUser?.email,
-      authError: authResult.error
-    });
-
-    // 不再支持用户自定义API密钥，使用服务器端API密钥
-    const userApiKey = '';
-
-    // 估算输入TOKEN数量
     const tokenEstimate = tokenUsageService.estimateTokens(prompt);
-    console.log('TOKEN估算:', tokenEstimate);
 
     const payload = {
       contents: [{
@@ -46,116 +30,89 @@ export async function POST(req: NextRequest) {
         temperature: 0.1,
         topK: 1,
         topP: 0.1,
-        maxOutputTokens: 32768, // 增加到32K tokens
+        maxOutputTokens: 8192, // Reduced for streaming
       }
     };
 
-    // Stream mode is not currently supported for analysis
-    // Process the request normally without streaming
-
-    const result = await apiClient.makeRequest({
+    const stream = await apiClient.makeStreamingRequest({
       url: effectiveApiUrl,
       method: 'POST',
       body: payload
-    }, userApiKey);
+    });
 
-    if (!result.success) {
-      console.error('AI API error:', result.error);
-      
-      // 记录失败的TOKEN使用量
-      if (currentUser?.userId) {
-        console.log('记录失败的TOKEN使用量:', {
-          userId: currentUser.userId,
-          inputTokens: tokenEstimate.inputTokens,
-          error: result.error
-        });
-        
+    // Tee the stream to allow reading it twice
+    const [streamForClient, streamForTokenCounting] = stream.tee();
+
+    // Asynchronously count tokens from the second stream
+    if (currentUser?.userId) {
+      (async () => {
         try {
+          const reader = streamForTokenCounting.getReader();
+          const decoder = new TextDecoder();
+          let fullResponseText = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            fullResponseText += decoder.decode(value, { stream: true });
+          }
+          
+          // Extract text from the streamed chunks
+          let analysisText = '';
+          const chunks = fullResponseText.match(/{[\s\S]*?}/g) || [];
+          for (const chunkStr of chunks) {
+            try {
+              const chunk = JSON.parse(chunkStr);
+              if (chunk.candidates && chunk.candidates[0] && chunk.candidates[0].content) {
+                const parts = chunk.candidates[0].content.parts;
+                if (parts && parts[0] && parts[0].text) {
+                  analysisText += parts[0].text;
+                }
+              }
+            } catch {
+              // Ignore parsing errors for individual chunks
+            }
+          }
+
+          const outputTokens = tokenUsageService.estimateTokens(analysisText).inputTokens;
           await tokenUsageService.recordTokenUsage({
             userId: currentUser.userId,
             apiEndpoint: 'analyze',
             inputTokens: tokenEstimate.inputTokens,
-            outputTokens: 0,
-            modelName: 'gemini-2.0-flash-exp',
-            success: false
+            outputTokens: outputTokens,
+            modelName: 'gemini-2.5-flash',
+            success: true
           });
-          console.log('失败TOKEN使用量记录成功');
+          console.log('流式响应TOKEN使用量记录成功');
         } catch (error) {
-          console.error('失败TOKEN使用量记录失败:', error);
+          console.error('流式响应TOKEN使用量记录失败:', error);
         }
-      }
-      
-      return NextResponse.json({ error: { message: result.error } }, { status: 500 });
+      })();
     }
 
-    type GeminiCandidate = {
-      candidates?: Array<{
-        content?: {
-          parts?: Array<{
-            text?: string;
-          }>;
-        };
-      }>;
-    };
-
-    const geminiResponse = result.data as GeminiCandidate | GeminiCandidate[];
-    let analysisText = '';
-
-    if (Array.isArray(geminiResponse)) {
-      for (const chunk of geminiResponse) {
-        if (chunk.candidates && chunk.candidates[0] && chunk.candidates[0].content) {
-          const parts = chunk.candidates[0].content.parts;
-          if (parts && parts[0] && parts[0].text) {
-            analysisText += parts[0].text;
-          }
-        }
-      }
-    } else if (geminiResponse.candidates && geminiResponse.candidates[0] && geminiResponse.candidates[0].content) {
-      const parts = geminiResponse.candidates[0].content.parts;
-      if (parts && parts[0] && parts[0].text) {
-        analysisText = parts[0].text;
-      }
-    }
-
-    const compatibleResponse = {
-      choices: [{
-        message: {
-          content: analysisText || '解析失败：未找到有效的分析结果'
-        }
-      }]
-    };
-
-    // 记录TOKEN使用量（如果有用户信息）
-    if (currentUser?.userId) {
-      const outputTokens = tokenUsageService.estimateTokens(analysisText).inputTokens;
-      console.log('记录TOKEN使用量:', {
-        userId: currentUser.userId,
-        inputTokens: tokenEstimate.inputTokens,
-        outputTokens: outputTokens,
-        analysisTextLength: analysisText.length
-      });
-      
-      try {
-        await tokenUsageService.recordTokenUsage({
-          userId: currentUser.userId,
-          apiEndpoint: 'analyze',
-          inputTokens: tokenEstimate.inputTokens,
-          outputTokens: outputTokens,
-          modelName: 'gemini-2.0-flash-exp',
-          success: true
-        });
-        console.log('TOKEN使用量记录成功');
-      } catch (error) {
-        console.error('TOKEN使用量记录失败:', error);
-      }
-    } else {
-      console.log('未找到用户信息，跳过TOKEN统计:', { authResult: authResult.error, currentUser });
-    }
-    
-    return NextResponse.json(compatibleResponse);
+    return new NextResponse(streamForClient, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+      },
+    });
 
   } catch (error) {
-    console.error('Server error:', error);
-    return NextResponse.json({ error: { message: error instanceof Error ? error.message : '服务器错误' } }, { status: 500 });
+    console.error('Server error in /api/analyze:', error);
+    const errorMessage = error instanceof Error ? error.message : '服务器错误';
+    // Also record failed token usage on stream setup failure
+    const authResult = await authMiddleware(false)(req);
+    if (authResult.user?.userId) {
+        const { prompt } = await req.json();
+        const tokenEstimate = tokenUsageService.estimateTokens(prompt);
+        await tokenUsageService.recordTokenUsage({
+            userId: authResult.user.userId,
+            apiEndpoint: 'analyze',
+            inputTokens: tokenEstimate.inputTokens,
+            outputTokens: 0,
+            modelName: 'gemini-2.5-flash',
+            success: false
+        });
+    }
+    return NextResponse.json({ error: { message: errorMessage } }, { status: 500 });
   }
 }

@@ -38,173 +38,82 @@ function getHeaders(authToken?: string): HeadersInit {
   return headers;
 }
 
-// 分析日语句子
 export async function analyzeSentence(
-  sentence: string
-): Promise<TokenData[]> {
+  sentence: string,
+  onChunk: (chunk: string) => void
+): Promise<void> {
   if (!sentence) {
     throw new Error('缺少句子');
   }
 
-  // 如果文本过长，提醒用户可能需要更多时间
-  if (sentence.length > 1000) {
-    console.log('检测到长文本，正在完整解析...');
-  }
+  const apiUrl = getApiEndpoint('/analyze');
+  const authToken = localStorage.getItem('authToken') || '';
+  const headers = getHeaders(authToken);
 
-  try {
-    const apiUrl = getApiEndpoint('/analyze');
-    // 获取用户认证token用于统计
-    const authToken = localStorage.getItem('authToken') || '';
-    const headers = getHeaders(authToken);
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ 
-        prompt: `请对以下完整的日语文本进行词法分析，必须解析所有内容，不要遗漏任何部分。
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      prompt: `请对以下完整的日语文本进行词法分析，必须解析所有内容，不要遗漏任何部分。
 
 输入文本：${sentence}
 
 要求：
 1. 解析文本中的每一个词汇，包括标点符号
-2. 返回JSON数组格式，每个对象包含4个字段："word", "pos", "furigana", "romaji"
+2. 返回JSON数组格式，每个对象包含4个字段:"word", "pos", "furigana", "romaji"
 3. 助动词与动词结合（如"食べた"为一个词）
-4. 正确处理换行符：{"word": "\\n", "pos": "改行", "furigana": "", "romaji": ""}
+4. 正确处理换行符:{"word": "\\n", "pos": "改行", "furigana": "", "romaji": ""}
 5. 确保输出完整的JSON数组，必须以']'结束
 6. 不要添加任何解释文字，只输出JSON
 
 重要：必须完整解析所有输入内容，不能遗漏！
 
-JSON数组：`, 
-        model: MODEL_NAME
-      })
-    });
+JSON数组：`,
+      model: MODEL_NAME
+    })
+  });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('API Error (Analysis):', errorData);
-      throw new Error(`解析失败：${errorData.error?.message || response.statusText || '未知错误'}`);
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`解析失败：${errorData.error?.message || response.statusText || '未知错误'}`);
+  }
+
+  if (!response.body) {
+    throw new Error('响应体为空');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
     }
     
-    const result = await response.json();
+    const chunk = decoder.decode(value, { stream: true });
 
-    if (result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content) {
-      let responseContent = result.choices[0].message.content;
-      
-      try {
-        // Try to find JSON in markdown code blocks first
-        let jsonMatch = responseContent.match(/```json\n([\s\S]*?)\n```/);
-        if (jsonMatch && jsonMatch[1]) {
-          responseContent = jsonMatch[1];
-        } else {
-          // Try to find JSON array without markdown
-          jsonMatch = responseContent.match(/\[[\s\S]*\]/);
-          if (jsonMatch && jsonMatch[0]) {
-            responseContent = jsonMatch[0];
-          } else {
-            // Try to find incomplete JSON and fix it
-            const incompleteMatch = responseContent.match(/\[([\s\S]*)/);
-            if (incompleteMatch) {
-              let incompleteJson = incompleteMatch[0];
-              
-              console.log('Fixing incomplete JSON, original length:', incompleteJson.length);
-              
-              // Strategy 1: Find the last complete object and truncate after it
-              const objects = [];
-              let currentObj = '';
-              let braceCount = 0;
-              let inString = false;
-              let escapeNext = false;
-              
-              for (let i = 1; i < incompleteJson.length; i++) { // Skip opening [
-                const char = incompleteJson[i];
-                
-                if (escapeNext) {
-                  escapeNext = false;
-                  currentObj += char;
-                  continue;
-                }
-                
-                if (char === '\\') {
-                  escapeNext = true;
-                  currentObj += char;
-                  continue;
-                }
-                
-                if (char === '"' && !escapeNext) {
-                  inString = !inString;
-                }
-                
-                if (!inString) {
-                  if (char === '{') {
-                    if (braceCount === 0) {
-                      currentObj = '{';
-                    } else {
-                      currentObj += char;
-                    }
-                    braceCount++;
-                  } else if (char === '}') {
-                    currentObj += char;
-                    braceCount--;
-                    
-                    if (braceCount === 0) {
-                      // Complete object found
-                      try {
-                        JSON.parse(currentObj);
-                        objects.push(currentObj);
-                        currentObj = '';
-                      } catch {
-                        // Invalid object, skip it
-                        currentObj = '';
-                      }
-                    }
-                  } else if (braceCount > 0) {
-                    currentObj += char;
-                  }
-                } else {
-                  currentObj += char;
-                }
-              }
-              
-              if (objects.length > 0) {
-                responseContent = '[' + objects.join(',') + ']';
-                console.log('Fixed JSON with', objects.length, 'complete objects');
-              } else {
-                // Fallback: simple truncation approach
-                const lastCommaIndex = incompleteJson.lastIndexOf(',');
-                const lastBraceIndex = incompleteJson.lastIndexOf('}');
-                
-                if (lastCommaIndex > lastBraceIndex && lastBraceIndex > 0) {
-                  incompleteJson = incompleteJson.substring(0, lastCommaIndex) + ']';
-                } else if (lastBraceIndex > 0) {
-                  incompleteJson = incompleteJson.substring(0, lastBraceIndex + 1) + ']';
-                } else {
-                  incompleteJson = '[]'; // Empty array as last resort
-                }
-                responseContent = incompleteJson;
-                console.log('Used fallback JSON repair');
-              }
-            }
+    // 处理Gemini流式响应
+    // 直接从原始chunk中提取text内容，不依赖完整的JSON解析
+    
+    // 使用正则表达式提取所有"text"字段的内容
+    const textMatches = chunk.match(/"text":\s*"((?:[^"\\]|\\.)*)"/g);
+    
+    if (textMatches) {
+      for (const match of textMatches) {
+        try {
+          // 提取引号内的内容
+          const textMatch = match.match(/"text":\s*"((?:[^"\\]|\\.)*)"/);
+          if (textMatch && textMatch[1]) {
+            // 解析转义字符
+            const textContent = JSON.parse(`"${textMatch[1]}"`);
+            onChunk(textContent);
           }
+        } catch {
+          console.warn('Failed to extract text from match:', match);
         }
-        
-        // Clean up the response content
-        responseContent = responseContent.trim();
-        
-        return JSON.parse(responseContent) as TokenData[];
-      } catch (e) {
-        console.error("Failed to parse JSON from analysis response:", e);
-        console.error("Response content length:", responseContent.length);
-        console.error("Response preview:", responseContent.substring(0, 200) + "...");
-        throw new Error('解析结果JSON格式错误，请重试');
       }
-    } else {
-      console.error('Unexpected API response structure (Analysis):', result);
-      throw new Error('解析结果格式错误，请重试');
     }
-  } catch (error) {
-    console.error('Error analyzing sentence:', error);
-    throw error;
   }
 }
 

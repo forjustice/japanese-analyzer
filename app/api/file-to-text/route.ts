@@ -53,7 +53,7 @@ function processPdfText(rawText: string): string {
 
 // API密钥从环境变量获取，支持逗号分隔的多个密钥
 const API_KEY = process.env.API_KEY || '';
-const API_URL = process.env.API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const API_URL = process.env.API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent';
 
 // 创建API客户端实例
 const apiClient = new ApiClient(API_KEY);

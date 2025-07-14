@@ -147,10 +147,107 @@ export default function Home() {
     setAnalyzedTokens([]);
     setTranslationTrigger(Date.now());
     
+    let accumulatedJson = '';
     try {
-      const tokens = await analyzeSentence(text);
-      setAnalyzedTokens(tokens);
-      saveAnalysisToHistory(text, tokens, currentTranslation);
+      await analyzeSentence(text, (chunk) => {
+        console.log("Received chunk:", chunk);
+        accumulatedJson += chunk;
+        // We don't parse here anymore to avoid errors with incomplete data.
+        // We will parse only once at the very end.
+      });
+
+      // Final, crucial validation and parsing after the stream is complete.
+      let trimmedJson = accumulatedJson.trim();
+      if (!trimmedJson) {
+        throw new Error("AI返回的解析结果为空，请检查输入或稍后重试。");
+      }
+      
+      console.log("Accumulated JSON:", trimmedJson);
+      
+      // 清理Markdown代码块标记
+      trimmedJson = trimmedJson.replace(/^```json?\s*/, '').replace(/\s*```$/, '');
+      
+      let finalTokens;
+      try {
+        // 清理和修复JSON格式
+        let cleanedJson = trimmedJson;
+        
+        // 修复常见的JSON格式问题
+        cleanedJson = cleanedJson
+          // 修复缺少引号的情况
+          .replace(/,\s*"pos":\s*,/g, ', "pos": "句読点",')
+          .replace(/,\s*"pos":\s*"furigana"/g, ', "pos": "句読点", "furigana"')
+          .replace(/,\s*"pos":\s*$/gm, ', "pos": "句読点"')
+          // 修复缺少逗号的情况
+          .replace(/}\s*{/g, '}, {')
+          // 修复缺少字段名的情况
+          .replace(/,\s*"([^"]+)"\s*}/g, ', "$1": ""}')
+          // 修复多余的逗号
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
+          // 修复缺少开头的情况
+          .replace(/^\s*{/, '[{')
+          // 修复缺少结尾的情况
+          .replace(/}\s*$/, '}]');
+        
+        console.log("Cleaned JSON:", cleanedJson);
+        
+        // 尝试直接解析
+        if (cleanedJson.startsWith('[') && cleanedJson.endsWith(']')) {
+          try {
+            finalTokens = JSON.parse(cleanedJson);
+          } catch (e) {
+            // 如果直接解析失败，尝试逐个提取对象
+            const jsonObjects = [];
+            const regex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+            let match;
+            while ((match = regex.exec(cleanedJson)) !== null) {
+              try {
+                const obj = JSON.parse(match[0]);
+                if (obj.word !== undefined) {
+                  jsonObjects.push(obj);
+                }
+              } catch {
+                console.warn('Failed to parse individual JSON object:', match[0]);
+              }
+            }
+            
+            if (jsonObjects.length > 0) {
+              finalTokens = jsonObjects;
+            } else {
+              throw new Error("无法从AI响应中提取有效的JSON数据");
+            }
+          }
+        } else {
+          // 如果不是完整的数组格式，尝试提取所有对象
+          const jsonObjects = [];
+          const regex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+          let match;
+          while ((match = regex.exec(cleanedJson)) !== null) {
+            try {
+              const obj = JSON.parse(match[0]);
+              if (obj.word !== undefined) {
+                jsonObjects.push(obj);
+              }
+            } catch {
+              console.warn('Failed to parse individual JSON object:', match[0]);
+            }
+          }
+          
+          if (jsonObjects.length > 0) {
+            finalTokens = jsonObjects;
+          } else {
+            throw new Error("无法从AI响应中提取有效的JSON数据");
+          }
+        }
+      } catch (parseError) {
+        console.error("JSON parsing failed:", parseError);
+        console.error("Original response:", trimmedJson);
+        throw new Error("AI返回的解析结果格式不正确，无法解析为有效的JSON数组。");
+      }
+      setAnalyzedTokens(finalTokens);
+      saveAnalysisToHistory(text, finalTokens, currentTranslation);
+
     } catch (error) {
       console.error('Analysis error:', error);
       setAnalysisError(error instanceof Error ? error.message : '未知错误');

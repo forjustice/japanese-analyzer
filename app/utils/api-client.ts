@@ -161,6 +161,45 @@ export class ApiClient {
     }
   }
 
+  public async makeStreamingRequest(
+    config: ApiRequestConfig,
+    userApiKey?: string
+  ): Promise<ReadableStream<Uint8Array>> {
+    const apiKey = userApiKey || this.keyManager?.getWorkingKey();
+
+    if (!apiKey) {
+      throw new Error('暂无可用的API密钥');
+    }
+
+    const url = config.url.includes('generativelanguage.googleapis.com')
+      ? `${config.url}?key=${apiKey}`
+      : config.url;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(config.url.includes('generativelanguage.googleapis.com') ? {} : { 'Authorization': `Bearer ${apiKey}` }),
+      ...config.headers
+    };
+
+    const response = await fetch(url, {
+      method: config.method,
+      headers,
+      body: config.body ? JSON.stringify(config.body) : undefined,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error(`HTTP ${response.status}: ${errorData}`);
+      throw new Error(`API请求失败: ${response.statusText}`);
+    }
+
+    if (!response.body) {
+      throw new Error('响应体为空');
+    }
+
+    return response.body;
+  }
+
   private isKeyRelatedError(error: string): boolean {
     const keyErrorPatterns = [
       'API key',

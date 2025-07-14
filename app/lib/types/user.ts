@@ -17,6 +17,7 @@ export interface CreateUserInput {
   email: string;
   password: string;
   username?: string;
+  is_verified?: boolean;
 }
 
 export interface LoginInput {
