@@ -162,7 +162,7 @@ export default function Home() {
         throw new Error("AI返回的解析结果为空，请检查输入或稍后重试。");
       }
       
-      console.log("Accumulated JSON:", trimmedJson);
+      console.log("Accumulated JSON (length: " + trimmedJson.length + "):", trimmedJson.substring(0, 200) + "...");
       
       // 清理Markdown代码块标记
       trimmedJson = trimmedJson.replace(/^```json?\s*/, '').replace(/\s*```$/, '');
@@ -190,13 +190,27 @@ export default function Home() {
           // 修复缺少结尾的情况
           .replace(/}\s*$/, '}]');
         
-        console.log("Cleaned JSON:", cleanedJson);
+        console.log("Cleaned JSON (length: " + cleanedJson.length + "):", cleanedJson.substring(0, 200) + "...");
+        
+        // 检查JSON是否完整（以']'结束）
+        if (!cleanedJson.endsWith(']') && !cleanedJson.endsWith('}]')) {
+          console.warn("JSON似乎不完整，缺少结束符");
+          // 尝试添加缺失的结束符
+          if (cleanedJson.includes('[') && !cleanedJson.endsWith(']')) {
+            const lastBrace = cleanedJson.lastIndexOf('}');
+            if (lastBrace > -1) {
+              cleanedJson = cleanedJson.substring(0, lastBrace + 1) + ']';
+            }
+          }
+        }
         
         // 尝试直接解析
         if (cleanedJson.startsWith('[') && cleanedJson.endsWith(']')) {
           try {
             finalTokens = JSON.parse(cleanedJson);
-          } catch {
+            console.log("Successfully parsed JSON array with", finalTokens.length, "tokens");
+          } catch (parseError) {
+            console.warn('Direct JSON parsing failed:', parseError);
             // 如果直接解析失败，尝试逐个提取对象
             const jsonObjects = [];
             const regex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
@@ -214,6 +228,7 @@ export default function Home() {
             
             if (jsonObjects.length > 0) {
               finalTokens = jsonObjects;
+              console.log("Extracted", jsonObjects.length, "valid tokens from partial JSON");
             } else {
               throw new Error("无法从AI响应中提取有效的JSON数据");
             }
@@ -236,6 +251,7 @@ export default function Home() {
           
           if (jsonObjects.length > 0) {
             finalTokens = jsonObjects;
+            console.log("Extracted", jsonObjects.length, "valid tokens without array format");
           } else {
             throw new Error("无法从AI响应中提取有效的JSON数据");
           }

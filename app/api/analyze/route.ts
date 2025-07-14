@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
         temperature: 0.1,
         topK: 1,
         topP: 0.1,
-        maxOutputTokens: 8192, // Reduced for streaming
+        maxOutputTokens: 65536, // Maximum for very long content
       }
     };
 

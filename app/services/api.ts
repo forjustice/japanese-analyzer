@@ -65,8 +65,9 @@ export async function analyzeSentence(
 4. 正确处理换行符:{"word": "\\n", "pos": "改行", "furigana": "", "romaji": ""}
 5. 确保输出完整的JSON数组，必须以']'结束
 6. 不要添加任何解释文字，只输出JSON
+7. 无论文本多长，都必须完整解析每一个字符，不能因为长度而截断
 
-重要：必须完整解析所有输入内容，不能遗漏！
+重要：必须完整解析所有输入内容，即使文本很长也不能遗漏任何部分！
 
 JSON数组：`,
       model: MODEL_NAME
@@ -94,23 +95,42 @@ JSON数组：`,
     const chunk = decoder.decode(value, { stream: true });
 
     // 处理Gemini流式响应
-    // 直接从原始chunk中提取text内容，不依赖完整的JSON解析
+    // 解析每个JSON chunk并提取text内容
+    const lines = chunk.split('\n').filter(line => line.trim());
     
-    // 使用正则表达式提取所有"text"字段的内容
-    const textMatches = chunk.match(/"text":\s*"((?:[^"\\]|\\.)*)"/g);
-    
-    if (textMatches) {
-      for (const match of textMatches) {
-        try {
-          // 提取引号内的内容
-          const textMatch = match.match(/"text":\s*"((?:[^"\\]|\\.)*)"/);
-          if (textMatch && textMatch[1]) {
-            // 解析转义字符
-            const textContent = JSON.parse(`"${textMatch[1]}"`);
-            onChunk(textContent);
+    for (const line of lines) {
+      try {
+        // 尝试解析每一行为JSON
+        const parsed = JSON.parse(line);
+        
+        // 提取candidates中的text内容
+        if (parsed.candidates && Array.isArray(parsed.candidates)) {
+          for (const candidate of parsed.candidates) {
+            if (candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts)) {
+              for (const part of candidate.content.parts) {
+                if (part.text) {
+                  onChunk(part.text);
+                }
+              }
+            }
           }
-        } catch {
-          console.warn('Failed to extract text from match:', match);
+        }
+      } catch {
+        // 如果不是完整的JSON，尝试用正则表达式提取text字段
+        const textMatches = line.match(/"text":\s*"((?:[^"\\]|\\.)*)"/g);
+        
+        if (textMatches) {
+          for (const match of textMatches) {
+            try {
+              const textMatch = match.match(/"text":\s*"((?:[^"\\]|\\.)*)"/);
+              if (textMatch && textMatch[1]) {
+                const textContent = JSON.parse(`"${textMatch[1]}"`);
+                onChunk(textContent);
+              }
+            } catch {
+              console.warn('Failed to extract text from match:', match);
+            }
+          }
         }
       }
     }
