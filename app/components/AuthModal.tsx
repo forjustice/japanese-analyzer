@@ -173,6 +173,14 @@ export default function AuthModal({
             break;
           }
 
+          console.log('准备发送注册验证请求:', {
+            email: formData.email,
+            code: formData.code,
+            username: formData.username,
+            type: 'registration',
+            hasPassword: !!formData.password
+          });
+
           const verifyResponse = await fetch('/api/auth/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -188,6 +196,7 @@ export default function AuthModal({
           const verifyData = await verifyResponse.json();
           console.log('注册验证响应:', verifyData);
           console.log('响应状态:', verifyResponse.status);
+          console.log('响应头:', Object.fromEntries(verifyResponse.headers.entries()));
           
           if (verifyData.success) {
             // 验证成功，自动登录

@@ -27,13 +27,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(AuthUtils.formatErrorResponse('验证码格式不正确'), { status: 400 });
     }
 
-    // 首先验证验证码但不标记为已使用
-    const verificationCode = await VerificationCodeModel.verify(email.toLowerCase(), code, type);
+    // 原子性验证验证码并标记为已使用（防止重复提交）
+    const verificationCode = await VerificationCodeModel.verifyAndMarkUsed(email.toLowerCase(), code, type);
     if (!verificationCode) {
+      console.log('验证码验证失败 - 邮箱:', email, '验证码:', code, '类型:', type);
       return NextResponse.json(AuthUtils.formatErrorResponse('验证码无效、已过期或已使用'), { status: 400 });
     }
 
-    console.log('验证码验证通过，验证码ID:', verificationCode.id);
+    console.log('验证码验证通过，验证码ID:', verificationCode.id, '已自动标记为已使用');
 
     switch (type) {
       case 'registration':
@@ -65,17 +66,15 @@ export async function POST(request: NextRequest) {
         const connection = await db.beginTransaction();
         
         try {
-          // 3.1 标记验证码为已使用
-          await connection.execute('UPDATE verification_codes SET is_used = TRUE WHERE id = ?', [verificationCode.id]);
-          console.log('验证码标记为已使用');
+          // 验证码已经在前面被原子性标记为已使用，这里直接进行用户操作
           
-          // 3.2 清理可能存在的未验证用户
+          // 3.1 清理可能存在的未验证用户
           if (existingUser && !existingUser.is_verified) {
             await connection.execute('DELETE FROM users WHERE id = ?', [existingUser.id]);
             console.log('删除未验证的用户:', existingUser.id);
           }
           
-          // 3.3 创建用户
+          // 3.2 创建用户
           const saltRounds = 12;
           const passwordHash = await bcrypt.hash(password, saltRounds);
           
@@ -87,10 +86,10 @@ export async function POST(request: NextRequest) {
           const userId = (userResult as { insertId: number }).insertId;
           console.log('用户创建成功，用户ID:', userId);
           
-          // 3.4 更新最后登录时间
+          // 3.3 更新最后登录时间
           await connection.execute('UPDATE users SET last_login_at = NOW() WHERE id = ?', [userId]);
           
-          // 3.5 提交事务
+          // 3.4 提交事务
           await db.commitTransaction(connection);
           console.log('数据库事务提交成功');
           

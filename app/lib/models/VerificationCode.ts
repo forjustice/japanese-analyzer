@@ -42,6 +42,40 @@ export class VerificationCodeModel {
     return await db.queryOne<VerificationCode>(sql, [email, code, type]);
   }
 
+  // 原子性验证并标记验证码为已使用（防止竞态条件）
+  static async verifyAndMarkUsed(email: string, code: string, type: string): Promise<VerificationCode | null> {
+    const connection = await db.beginTransaction();
+    
+    try {
+      // 先查询验证码
+      const sql = `
+        SELECT * FROM verification_codes 
+        WHERE email = ? AND code = ? AND type = ? AND is_used = FALSE AND expires_at > NOW()
+        ORDER BY created_at DESC 
+        LIMIT 1
+        FOR UPDATE
+      `;
+      
+      const result = await connection.execute(sql, [email, code, type]);
+      const verificationCode = Array.isArray(result[0]) && result[0].length > 0 ? result[0][0] as VerificationCode : null;
+      
+      if (!verificationCode) {
+        await db.rollbackTransaction(connection);
+        return null;
+      }
+      
+      // 立即标记为已使用
+      await connection.execute('UPDATE verification_codes SET is_used = TRUE WHERE id = ?', [verificationCode.id]);
+      
+      await db.commitTransaction(connection);
+      return verificationCode;
+      
+    } catch (error) {
+      await db.rollbackTransaction(connection);
+      throw error;
+    }
+  }
+
   // 标记验证码为已使用
   static async markAsUsed(id: number): Promise<boolean> {
     const sql = 'UPDATE verification_codes SET is_used = TRUE WHERE id = ?';
