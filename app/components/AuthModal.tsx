@@ -432,7 +432,7 @@ export default function AuthModal({
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-auto transition-colors duration-200 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* 返回按钮 */}
-          {currentMode !== 'simple' && currentMode !== 'login' && (
+          {currentMode !== 'login' && (
             <button
               onClick={() => handleModeChange('login')}
               className="mb-4 flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
@@ -676,7 +676,7 @@ export default function AuthModal({
           </form>
 
           {/* 底部链接 */}
-          {mode !== 'simple' && (
+          {mode === 'user' && (
             <div className="mt-6 text-center space-y-2">
               {currentMode === 'login' && (
                 <>
@@ -720,10 +720,7 @@ export default function AuthModal({
           {/* 底部说明 */}
           <div className="mt-6 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
-              {mode === 'simple' 
-                ? '请联系管理员获取访问密码' 
-                : '注册即表示你同意我们的服务条款和隐私政策'
-              }
+              注册即表示你同意我们的服务条款和隐私政策
             </p>
           </div>
         </div>

@@ -48,8 +48,29 @@ export async function GET(req: NextRequest) {
 }
 
 // 格式化每日统计数据
-function formatDailyStats(dailyStats: any[]): any[] {
-  const statsMap: { [key: string]: any } = {};
+function formatDailyStats(dailyStats: Array<{
+  usage_date: string;
+  api_endpoint: string;
+  total_tokens: number;
+  request_count: number;
+}>): Array<{
+  date: string;
+  totalTokens: number;
+  totalRequests: number;
+  analyzeTokens: number;
+  translateTokens: number;
+  ttsTokens: number;
+  ocrTokens: number;
+}> {
+  const statsMap: { [key: string]: {
+    date: string;
+    totalTokens: number;
+    totalRequests: number;
+    analyzeTokens: number;
+    translateTokens: number;
+    ttsTokens: number;
+    ocrTokens: number;
+  } } = {};
 
   // 按日期分组统计
   dailyStats.forEach(stat => {
@@ -57,35 +78,40 @@ function formatDailyStats(dailyStats: any[]): any[] {
     if (!statsMap[date]) {
       statsMap[date] = {
         date,
-        analyze: 0,
-        translate: 0,
-        tts: 0,
-        ocr: 0,
-        total: 0
+        totalTokens: 0,
+        totalRequests: 0,
+        analyzeTokens: 0,
+        translateTokens: 0,
+        ttsTokens: 0,
+        ocrTokens: 0
       };
     }
 
-    const tokens = stat.daily_tokens || 0;
+    const tokens = stat.total_tokens || 0;
+    const requests = stat.request_count || 0;
+    
+    statsMap[date].totalTokens += tokens;
+    statsMap[date].totalRequests += requests;
+    
     switch (stat.api_endpoint) {
       case 'analyze':
-        statsMap[date].analyze += tokens;
+        statsMap[date].analyzeTokens += tokens;
         break;
       case 'translate':
-        statsMap[date].translate += tokens;
+        statsMap[date].translateTokens += tokens;
         break;
       case 'tts':
-        statsMap[date].tts += tokens;
+        statsMap[date].ttsTokens += tokens;
         break;
       case 'image-to-text':
       case 'file-to-text':
-        statsMap[date].ocr += tokens;
+        statsMap[date].ocrTokens += tokens;
         break;
     }
-    statsMap[date].total += tokens;
   });
 
   // 转换为数组并按日期排序
   return Object.values(statsMap)
-    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 30); // 最多返回30天的数据
 }

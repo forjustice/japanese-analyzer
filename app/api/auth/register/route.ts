@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
         
         // 删除创建的用户（因为无法发送验证码）
         try {
-          await UserModel.deleteById(userId);
+          await UserModel.hardDelete(userId);
           console.log('已删除无法验证的用户:', userId);
         } catch (deleteError) {
           console.error('删除用户失败:', deleteError);

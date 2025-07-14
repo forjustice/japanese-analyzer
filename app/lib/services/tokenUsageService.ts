@@ -91,7 +91,17 @@ class TokenUsageService {
         );
 
         if (Array.isArray(rows) && rows.length > 0) {
-          const row = rows[0] as any;
+          const row = rows[0] as {
+            total_tokens_30days?: number;
+            analyze_tokens?: number;
+            translate_tokens?: number;
+            tts_tokens?: number;
+            ocr_tokens?: number;
+            total_requests_30days?: number;
+            days_remaining?: number;
+            trial_end_date?: string;
+            registration_date?: string;
+          };
           return {
             totalTokens30Days: row.total_tokens_30days || 0,
             analyzeTokens: row.analyze_tokens || 0,
@@ -117,7 +127,12 @@ class TokenUsageService {
   /**
    * 获取用户每日TOKEN使用量（最近30天）
    */
-  async getUserDailyStats(userId: number): Promise<any[]> {
+  async getUserDailyStats(userId: number): Promise<Array<{
+    usage_date: string;
+    api_endpoint: string;
+    total_tokens: number;
+    request_count: number;
+  }>> {
     try {
       const connection = await this.pool.getConnection();
       try {
@@ -133,7 +148,12 @@ class TokenUsageService {
            ORDER BY usage_date DESC, api_endpoint`,
           [userId]
         );
-        return rows as any[];
+        return rows as Array<{
+          usage_date: string;
+          api_endpoint: string;
+          total_tokens: number;
+          request_count: number;
+        }>;
       } finally {
         connection.release();
       }

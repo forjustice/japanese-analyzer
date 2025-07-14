@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
     const { text, voice = 'Kore', model = MODEL_NAME } = await req.json();
 
     // 从请求头中获取用户认证token（不再支持用户自定义API密钥）
-    const authHeader = req.headers.get('Authorization');
-    const userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
+    // const authHeader = req.headers.get('Authorization');
+    // const _userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
     
     // 使用服务器端API密钥进行API调用
     const userApiKey = '';
@@ -86,7 +86,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const ttsResponse = result.data;
+    const ttsResponse = result.data as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            inlineData?: {
+              data: string;
+              mimeType: string;
+            };
+          }>;
+        };
+      }>;
+    };
     const inlineData = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData;
     if (!inlineData) {
       return NextResponse.json(

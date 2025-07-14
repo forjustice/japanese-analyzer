@@ -88,7 +88,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: { message: result.error } }, { status: 500 });
     }
 
-    const geminiResponse = result.data;
+    type GeminiCandidate = {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            text?: string;
+          }>;
+        };
+      }>;
+    };
+
+    const geminiResponse = result.data as GeminiCandidate | GeminiCandidate[];
     let analysisText = '';
 
     if (Array.isArray(geminiResponse)) {

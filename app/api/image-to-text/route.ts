@@ -6,7 +6,6 @@ import { authMiddleware } from '../../lib/utils/auth';
 // API密钥从环境变量获取，支持逗号分隔的多个密钥
 const API_KEY = process.env.API_KEY || '';
 const API_URL = process.env.API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
-const MODEL_NAME = "gemini-2.5-flash";
 
 // 创建API客户端实例
 const apiClient = new ApiClient(API_KEY);
@@ -37,11 +36,11 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    const { imageData, prompt, model = MODEL_NAME, apiUrl, stream = false } = parsedBody;
+    const { imageData, prompt, apiUrl, stream = false } = parsedBody;
     
     // 从请求头中获取用户认证token（不再支持用户自定义API密钥）
-    const authHeader = req.headers.get('Authorization');
-    const userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
+    // const authHeader = req.headers.get('Authorization');
+    // const _userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
     
     // 使用服务器端API密钥进行API调用
     const userApiKey = '';
@@ -151,7 +150,18 @@ export async function POST(req: NextRequest) {
       );
     } else {
       // 非流式输出，转换响应格式
-      const geminiResponse = result.data;
+      type GeminiCandidate = {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{
+              text?: string;
+            }>;
+          };
+        }>;
+        text?: string;
+      };
+
+      const geminiResponse = result.data as GeminiCandidate | GeminiCandidate[];
       
       // 添加详细的调试日志
       console.log('Gemini API response structure:', JSON.stringify(geminiResponse, null, 2));
@@ -184,7 +194,7 @@ export async function POST(req: NextRequest) {
       }
       
       // 检查是否有其他可能的响应格式
-      if (!extractedText && geminiResponse.text) {
+      if (!extractedText && !Array.isArray(geminiResponse) && geminiResponse.text) {
         extractedText = geminiResponse.text;
         console.log('在直接文本属性中找到文本:', extractedText);
       }

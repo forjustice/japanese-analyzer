@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
     const requestData = await req.json();
     
     // 从请求头中获取用户认证token（不再支持用户自定义API密钥）
-    const authHeader = req.headers.get('Authorization');
-    const userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
+    // const authHeader = req.headers.get('Authorization');
+    // const _userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
     
     // 使用服务器端API密钥进行API调用
     const userApiKey = '';
@@ -97,7 +97,17 @@ export async function POST(req: NextRequest) {
     }
 
     // 转换响应格式以兼容前端
-    const geminiResponse = result.data;
+    type GeminiCandidate = {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            text?: string;
+          }>;
+        };
+      }>;
+    };
+
+    const geminiResponse = result.data as GeminiCandidate | GeminiCandidate[];
     
     // 从Gemini响应中提取详情文本
     let detailText = '';

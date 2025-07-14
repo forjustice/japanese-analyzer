@@ -5,7 +5,6 @@ import { translateText } from '../services/api';
 
 interface TranslationSectionProps {
   japaneseText: string;
-  useStream?: boolean;
   trigger?: number;
   onTranslationUpdate?: (translation: string) => void;
 }

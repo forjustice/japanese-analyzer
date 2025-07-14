@@ -33,8 +33,7 @@ class AuthClientManager {
   async checkAuthMode(): Promise<'user'> {
     try {
       // 简单密码验证已移除，只支持用户认证模式
-      const response = await fetch('/api/auth');
-      const data = await response.json();
+      await fetch('/api/auth');
       
       // 只支持用户认证模式
       return 'user';

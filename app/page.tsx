@@ -18,7 +18,6 @@ export default function Home() {
   const [analyzedTokens, setAnalyzedTokens] = useState<TokenData[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
-  const [useStream, setUseStream] = useState<boolean>(true);
   const [translationTrigger, setTranslationTrigger] = useState(0);
   const [showFurigana, setShowFurigana] = useState(true);
   const [currentTranslation, setCurrentTranslation] = useState('');
@@ -69,11 +68,11 @@ export default function Home() {
     isAuthenticated: false,
     user: null,
     token: null,
-    authMode: 'simple'
+    authMode: 'user'
   });
   const [requiresAuth, setRequiresAuth] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [authMode, setAuthMode] = useState<'simple' | 'user'>('simple');
+  const [authMode, setAuthMode] = useState<'user'>('user');
 
   useEffect(() => {
     const checkAuthRequirement = async () => {
@@ -105,7 +104,7 @@ export default function Home() {
           isAuthenticated: true,
           user: null,
           token: null,
-          authMode: 'simple'
+          authMode: 'user'
         });
       }
     };
@@ -114,14 +113,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const storedUseStream = localStorage.getItem('useStream');
     const storedTtsProvider = localStorage.getItem('ttsProvider') as 'system' | 'gemini' || 'gemini';
     
     setTtsProvider(storedTtsProvider);
     
-    if (storedUseStream !== null) {
-      setUseStream(storedUseStream === 'true');
-    }
   }, []);
 
   const handleTtsProviderChange = (provider: 'system' | 'gemini') => {
@@ -129,11 +124,11 @@ export default function Home() {
     localStorage.setItem('ttsProvider', provider);
   };
 
-  const handleAuth = async (data: any | string) => {
+  const handleAuth = async (data: AuthState['user'] | string) => {
     try {
       setAuthError('');
       
-      if (authMode === 'simple') {
+      if (authMode === 'user') {
         const response = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -141,18 +136,19 @@ export default function Home() {
         });
         const result = await response.json();
         if (result.success) {
-          authClient.setSimpleAuthState(true);
-          setAuthState({ isAuthenticated: true, user: null, token: null, authMode: 'simple' });
+          setAuthState({ isAuthenticated: true, user: null, token: null, authMode: 'user' });
           setRequiresAuth(false);
         } else {
           setAuthError(result.message || '验证失败');
         }
       } else {
         if (typeof data === 'object' && data && 'token' in data && 'user' in data) {
-          const authData = data as { token: string; user: any };
-          authClient.setUserAuthState(authData.token, authData.user);
-          setAuthState({ isAuthenticated: true, user: authData.user, token: authData.token, authMode: 'user' });
-          setRequiresAuth(false);
+          const authData = data as { token: string; user: AuthState['user'] };
+          if (authData.user) {
+            authClient.setUserAuthState(authData.token, authData.user);
+            setAuthState({ isAuthenticated: true, user: authData.user, token: authData.token, authMode: 'user' });
+            setRequiresAuth(false);
+          }
         }
       }
     } catch (error) {
@@ -205,7 +201,7 @@ export default function Home() {
             </p>
           </div>
         </div>
-        {authMode === 'simple' ? (
+        {authMode === 'user' ? (
           <LoginModal isOpen={true} onLogin={handleAuth} error={authError} />
         ) : (
           <AuthModal isOpen={true} onAuth={handleAuth} error={authError} mode="user" />
@@ -299,7 +295,6 @@ export default function Home() {
         <main>
           <InputSection 
             onAnalyze={handleAnalyze}
-            useStream={useStream}
             ttsProvider={ttsProvider}
             onTtsProviderChange={handleTtsProviderChange}
           />
@@ -343,7 +338,6 @@ export default function Home() {
           {currentSentence && (
             <TranslationSection
               japaneseText={currentSentence}
-              useStream={useStream}
               trigger={translationTrigger}
               onTranslationUpdate={setCurrentTranslation}
             />
@@ -368,7 +362,7 @@ export default function Home() {
           userInfo={{
             email: authState.user.email,
             username: authState.user.username,
-            created_at: authState.user.created_at
+            created_at: authState.user.created_at.toISOString()
           }}
         />
       )}

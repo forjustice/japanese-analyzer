@@ -27,14 +27,12 @@ export function getApiEndpoint(endpoint: string): string {
 }
 
 // 构建请求头
-function getHeaders(userApiKey?: string, authToken?: string): HeadersInit {
+function getHeaders(authToken?: string): HeadersInit {
   const headers: HeadersInit = { 'Content-Type': 'application/json' };
   
-  // 优先使用用户认证token，如果没有则使用API key
+  // 使用用户认证token
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`;
-  } else if (userApiKey) {
-    headers['Authorization'] = `Bearer ${userApiKey}`;
   }
   
   return headers;
@@ -57,7 +55,7 @@ export async function analyzeSentence(
     const apiUrl = getApiEndpoint('/analyze');
     // 获取用户认证token用于统计
     const authToken = localStorage.getItem('authToken') || '';
-    const headers = getHeaders(authToken ? '' : userApiKey, authToken);
+    const headers = getHeaders(authToken);
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -155,7 +153,7 @@ JSON数组：`,
                         JSON.parse(currentObj);
                         objects.push(currentObj);
                         currentObj = '';
-                      } catch (e) {
+                      } catch {
                         // Invalid object, skip it
                         currentObj = '';
                       }
@@ -222,7 +220,7 @@ export async function getWordDetails(
     const apiUrl = getApiEndpoint('/word-detail');
     // 获取用户认证token用于统计
     const authToken = localStorage.getItem('authToken') || '';
-    const headers = getHeaders(authToken ? '' : userApiKey, authToken);
+    const headers = getHeaders(authToken);
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -252,7 +250,7 @@ export async function getWordDetails(
           responseContent = jsonMatch[1];
         }
         return JSON.parse(responseContent) as WordDetail;
-      } catch (e) {
+      } catch {
         throw new Error('释义结果JSON格式错误');
       }
     } else {
@@ -273,7 +271,7 @@ export async function translateText(
     const apiUrl = getApiEndpoint('/translate');
     // 获取用户认证token用于统计
     const authToken = localStorage.getItem('authToken') || '';
-    const headers = getHeaders(authToken ? '' : userApiKey, authToken);
+    const headers = getHeaders(authToken);
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -311,7 +309,7 @@ export async function extractTextFromImage(
     const apiUrl = getApiEndpoint('/image-to-text');
     // 获取用户认证token用于统计
     const authToken = localStorage.getItem('authToken') || '';
-    const headers = getHeaders(authToken ? '' : userApiKey, authToken);
+    const headers = getHeaders(authToken);
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -360,8 +358,6 @@ export async function extractTextFromFile(
     const authToken = localStorage.getItem('authToken') || '';
     if (authToken) {
       headers['Authorization'] = `Bearer ${authToken}`;
-    } else if (userApiKey) {
-      headers['Authorization'] = `Bearer ${userApiKey}`;
     }
     
     const response = await fetch(apiUrl, {
@@ -396,7 +392,7 @@ export async function synthesizeSpeech(
   const apiUrl = getApiEndpoint('/tts');
   // 获取用户认证token用于统计
   const authToken = localStorage.getItem('authToken') || '';
-  const headers = getHeaders('', authToken);
+  const headers = getHeaders(authToken);
 
   const response = await fetch(apiUrl, {
     method: 'POST',

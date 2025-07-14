@@ -5,10 +5,20 @@ interface EmailConfig {
   host: string;
   port: number;
   secure: boolean;
+  requireTLS?: boolean;
   auth: {
     user: string;
     pass: string;
   };
+  tls?: {
+    rejectUnauthorized?: boolean;
+    ciphers?: string;
+  };
+  debug?: boolean;
+  logger?: boolean;
+  connectionTimeout?: number;
+  greetingTimeout?: number;
+  socketTimeout?: number;
 }
 
 interface EmailContent {
@@ -102,7 +112,7 @@ export class EmailService {
   }
 
   // 测试邮件连接
-  public async testConnection(): Promise<{ success: boolean; error?: string; config?: any }> {
+  public async testConnection(): Promise<{ success: boolean; error?: string; config?: object }> {
     if (!this.transporter) {
       return { success: false, error: 'SMTP传输器未初始化' };
     }
@@ -170,10 +180,10 @@ export class EmailService {
     } catch (error) {
       console.error('邮件发送失败:', {
         error: error instanceof Error ? error.message : error,
-        code: (error as any)?.code,
-        command: (error as any)?.command,
-        response: (error as any)?.response,
-        responseCode: (error as any)?.responseCode,
+        code: (error as { code?: string })?.code,
+        command: (error as { command?: string })?.command,
+        response: (error as { response?: string })?.response,
+        responseCode: (error as { responseCode?: number })?.responseCode,
         smtpConfig: {
           host: this.config?.host,
           port: this.config?.port,

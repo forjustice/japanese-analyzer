@@ -54,7 +54,6 @@ function processPdfText(rawText: string): string {
 // API密钥从环境变量获取，支持逗号分隔的多个密钥
 const API_KEY = process.env.API_KEY || '';
 const API_URL = process.env.API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
-const MODEL_NAME = "gemini-2.5-flash";
 
 // 创建API客户端实例
 const apiClient = new ApiClient(API_KEY);
@@ -74,13 +73,13 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const prompt = formData.get('prompt') as string;
-    const model = formData.get('model') as string || MODEL_NAME;
+    // const model = formData.get('model') as string || MODEL_NAME;
     const apiUrl = formData.get('apiUrl') as string;
     const stream = formData.get('stream') === 'true';
     
     // 从请求头中获取用户认证token（不再支持用户自定义API密钥）
-    const authHeader = req.headers.get('Authorization');
-    const userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
+    // const authHeader = req.headers.get('Authorization');
+    // const _userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
     
     // 使用服务器端API密钥进行API调用
     const userApiKey = '';
@@ -330,7 +329,15 @@ ${extractedText}`;
       );
     } else {
       // 非流式输出，转换响应格式
-      const geminiResponse = result.data;
+      const geminiResponse = result.data as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{
+              text?: string;
+            }>;
+          };
+        }>;
+      };
       
       // 从Gemini响应中提取文本
       let extractedAiText = '';

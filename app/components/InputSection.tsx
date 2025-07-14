@@ -15,7 +15,6 @@ const placeholderStyle = `
 
 interface InputSectionProps {
   onAnalyze: (text: string) => void;
-  useStream?: boolean;
   ttsProvider: 'system' | 'gemini';
   onTtsProviderChange: (provider: 'system' | 'gemini') => void;
 }
@@ -41,7 +40,6 @@ const TTS_STYLES = [
 
 export default function InputSection({ 
   onAnalyze,
-  useStream = true, // 默认启用流式输出
   ttsProvider,
   onTtsProviderChange
 }: InputSectionProps) {

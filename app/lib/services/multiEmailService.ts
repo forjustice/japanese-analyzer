@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import type { Transporter } from 'nodemailer';
+import type { Transporter, TransportOptions } from 'nodemailer';
 
 interface EmailProvider {
   name: string;
@@ -104,7 +104,7 @@ export class MultiEmailService {
       })
     };
 
-    return nodemailer.createTransport(config);
+    return nodemailer.createTransport(config as TransportOptions);
   }
 
   private async testProvider(provider: EmailProvider): Promise<boolean> {
