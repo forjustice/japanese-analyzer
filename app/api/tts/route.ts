@@ -54,11 +54,12 @@ export async function POST(req: NextRequest) {
       serverApiKey: API_KEY ? 'PROVIDED' : 'NOT_PROVIDED'
     });
 
-    // 使用API客户端发送请求，支持多KEY自动切换
+    // 使用API客户端发送请求，支持多KEY自动切换，增加超时设置
     const result = await apiClient.makeRequest({
       url: TTS_URL,
       method: 'POST',
-      body: payload
+      body: payload,
+      timeout: 60000 // 增加到60秒超时，TTS生成需要更长时间
     }, userApiKey);
 
     if (!result.success) {

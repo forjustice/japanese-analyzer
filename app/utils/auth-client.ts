@@ -86,6 +86,26 @@ class AuthClientManager {
   setUserAuthState(token: string, user: AuthUser) {
     localStorage.setItem('authToken', token);
     localStorage.setItem('user', JSON.stringify(user));
+    
+    // 触发本地历史记录迁移（异步，不阻塞登录流程）
+    this.migrateLocalHistory().catch(error => {
+      console.error('自动迁移本地历史记录失败:', error);
+    });
+  }
+
+  // 迁移本地历史记录到服务器
+  private async migrateLocalHistory(): Promise<void> {
+    try {
+      // 动态导入以避免循环依赖
+      const { migrateLocalHistoryToServer } = await import('./history');
+      const migratedCount = await migrateLocalHistoryToServer();
+      
+      if (migratedCount > 0) {
+        console.log(`成功迁移 ${migratedCount} 条历史记录到服务器`);
+      }
+    } catch (error) {
+      console.error('迁移历史记录失败:', error);
+    }
   }
 
   // 清除所有认证数据

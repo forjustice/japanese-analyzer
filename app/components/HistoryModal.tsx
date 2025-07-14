@@ -7,7 +7,6 @@ import {
   clearAllHistory, 
   searchHistory, 
   formatTimestamp,
-  exportHistory,
   importHistory,
   AnalysisHistoryItem 
 } from '../utils/history';
@@ -26,60 +25,90 @@ export default function HistoryModal({ isOpen, onClose, onSelectHistory }: Histo
   const [isLoading, setIsLoading] = useState(false);
 
   // 加载历史记录
-  const loadHistory = () => {
+  const loadHistory = async () => {
     setIsLoading(true);
-    const historyData = getAnalysisHistory();
-    setHistory(historyData);
-    setFilteredHistory(historyData);
-    setIsLoading(false);
+    try {
+      const historyData = await getAnalysisHistory();
+      setHistory(historyData);
+      setFilteredHistory(historyData);
+    } catch (error) {
+      console.error('Failed to load history:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // 搜索历史记录
-  const handleSearch = (query: string) => {
+  const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    const filtered = searchHistory(query);
-    setFilteredHistory(filtered);
+    setIsLoading(true);
+    try {
+      const filtered = await searchHistory(query);
+      setFilteredHistory(filtered);
+    } catch (error) {
+      console.error('Failed to search history:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // 删除单个历史记录
-  const handleDeleteItem = (id: string, e: React.MouseEvent) => {
+  const handleDeleteItem = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('确定要删除这条历史记录吗？')) {
-      deleteHistoryItem(id);
-      loadHistory();
+      try {
+        await deleteHistoryItem(id);
+        await loadHistory();
+      } catch (error) {
+        console.error('Failed to delete history item:', error);
+        alert('删除失败，请重试');
+      }
     }
   };
 
   // 清空所有历史记录
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (confirm('确定要清空所有历史记录吗？此操作不可恢复。')) {
-      clearAllHistory();
-      loadHistory();
+      try {
+        await clearAllHistory();
+        await loadHistory();
+      } catch (error) {
+        console.error('Failed to clear history:', error);
+        alert('清空失败，请重试');
+      }
     }
   };
 
   // 导出历史记录
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
-      exportHistory();
+      const historyData = await getAnalysisHistory();
+      const dataStr = JSON.stringify(historyData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = `japanese_analyzer_history_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
       alert('导出失败：' + (error instanceof Error ? error.message : '未知错误'));
     }
   };
 
   // 导入历史记录
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    importHistory(file)
-      .then((count) => {
-        alert(`成功导入 ${count} 条历史记录`);
-        loadHistory();
-      })
-      .catch((error) => {
-        alert('导入失败：' + (error instanceof Error ? error.message : '文件格式错误'));
-      });
+    try {
+      const count = await importHistory(file);
+      alert(`成功导入 ${count} 条历史记录`);
+      await loadHistory();
+    } catch (error) {
+      alert('导入失败：' + (error instanceof Error ? error.message : '文件格式错误'));
+    }
 
     // 清空文件输入
     e.target.value = '';
@@ -251,7 +280,7 @@ export default function HistoryModal({ isOpen, onClose, onSelectHistory }: Histo
         {/* 底部提示 */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
           <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-            点击历史记录可重新加载，历史记录保存在浏览器本地存储中
+            点击历史记录可重新加载，历史记录已与您的账户绑定
           </p>
         </div>
       </div>

@@ -359,7 +359,11 @@ export default function Home() {
         throw new Error("AI返回的解析结果格式不正确，无法解析为有效的JSON数组。");
       }
       setAnalyzedTokens(finalTokens);
-      saveAnalysisToHistory(text, finalTokens, currentTranslation);
+      
+      // 异步保存历史记录，不阻塞UI
+      saveAnalysisToHistory(text, finalTokens, currentTranslation).catch(error => {
+        console.error('Failed to save analysis to history:', error);
+      });
 
     } catch (error) {
       console.error('Analysis error:', error);

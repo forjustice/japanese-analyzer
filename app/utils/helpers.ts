@@ -134,9 +134,16 @@ export async function speakJapaneseWithTTS(text: string, voice?: string): Promis
   try {
     const url = await getJapaneseTtsAudioUrl(text, undefined, voice);
     const audioElement = new Audio(url);
-    audioElement.play();
+    
+    // 添加音频播放错误处理
+    audioElement.onerror = () => {
+      console.warn('音频播放失败，尝试使用系统朗读');
+      speakJapanese(text);
+    };
+    
+    await audioElement.play();
   } catch (error) {
-    console.warn('Gemini TTS 播放失败，尝试使用系统朗读', error);
+    console.warn('Gemini TTS 生成失败，尝试使用系统朗读:', error);
     speakJapanese(text);
   }
 }
