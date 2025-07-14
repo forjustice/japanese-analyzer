@@ -4,6 +4,7 @@ import { VerificationCodeModel } from '../../../lib/models/VerificationCode';
 import { emailService } from '../../../lib/services/emailService';
 import { AuthUtils } from '../../../lib/utils/auth';
 import { initDatabase } from '../../../lib/database';
+import { UserProfile } from '../../../lib/types/user';
 
 // 验证码验证API
 export async function POST(request: NextRequest) {
@@ -33,30 +34,51 @@ export async function POST(request: NextRequest) {
 
     switch (type) {
       case 'registration':
-        // This is the new logic for registration
+        // 完整的注册流程验证
+        console.log('开始注册验证流程，邮箱:', email);
+        
+        // 1. 验证所有必填参数
         if (!password) {
           return NextResponse.json(AuthUtils.formatErrorResponse('密码为必填项'), { status: 400 });
         }
         
+        // 2. 验证密码强度
         const passwordValidation = AuthUtils.validatePassword(password);
         if (!passwordValidation.isValid) {
           return NextResponse.json(AuthUtils.formatErrorResponse('密码不符合要求', { errors: passwordValidation.errors }), { status: 400 });
         }
 
+        // 3. 验证用户名格式
         if (username && !AuthUtils.isValidUsername(username)) {
           return NextResponse.json(AuthUtils.formatErrorResponse('用户名格式不正确'), { status: 400 });
         }
 
+        // 4. 检查邮箱是否已被注册
         const existingUser = await UserModel.findByEmail(email.toLowerCase());
         if (existingUser && existingUser.is_verified) {
           return NextResponse.json(AuthUtils.formatErrorResponse('该邮箱已被注册'), { status: 409 });
         }
         
-        // If an unverified user exists from an old flow, remove it before creating the new one.
-        if (existingUser) {
-            await UserModel.hardDelete(existingUser.id);
+        // 5. 所有验证通过，标记验证码为已使用
+        try {
+          await VerificationCodeModel.markAsUsed(verificationCode.id);
+          console.log('验证码标记为已使用');
+        } catch (error) {
+          console.error('标记验证码失败:', error);
+          return NextResponse.json(AuthUtils.formatErrorResponse('验证码处理失败'), { status: 500 });
         }
 
+        // 6. 清理可能存在的未验证用户
+        if (existingUser && !existingUser.is_verified) {
+          try {
+            await UserModel.hardDelete(existingUser.id);
+            console.log('删除未验证的用户:', existingUser.id);
+          } catch (error) {
+            console.error('删除未验证用户失败:', error);
+          }
+        }
+
+        // 7. 创建用户（只在所有验证通过后）
         let userId: number;
         try {
           userId = await UserModel.create({
@@ -68,35 +90,30 @@ export async function POST(request: NextRequest) {
           console.log('用户创建成功，用户ID:', userId);
         } catch (error: unknown) {
           console.error('用户创建失败:', error);
-          // 如果是数据库唯一约束错误，可能用户已经存在
-          if (error instanceof Error && (error.message?.includes('UNIQUE constraint failed') || error.message?.includes('邮箱已经被注册'))) {
-            // 检查是否已经有一个已验证的用户
-            const existingVerifiedUser = await UserModel.findByEmail(email.toLowerCase());
-            if (existingVerifiedUser && existingVerifiedUser.is_verified) {
-              return NextResponse.json(
-                AuthUtils.formatErrorResponse('该邮箱已被注册'),
-                { status: 409 }
-              );
-            }
-            // 如果用户存在但未验证，使用现有用户ID
-            if (existingVerifiedUser) {
-              userId = existingVerifiedUser.id;
-              console.log('使用现有用户ID:', userId);
-            } else {
-              return NextResponse.json(AuthUtils.formatErrorResponse('用户创建失败'), { status: 500 });
-            }
-          } else {
-            return NextResponse.json(AuthUtils.formatErrorResponse('用户创建失败'), { status: 500 });
-          }
+          return NextResponse.json(AuthUtils.formatErrorResponse('用户创建失败，请重试'), { status: 500 });
         }
 
+        // 8. 生成token和用户资料
+        let token: string;
+        let userProfile: UserProfile | null;
         try {
-          await VerificationCodeModel.markAsUsed(verificationCode.id);
-          console.log('验证码标记为已使用');
+          token = AuthUtils.generateToken({ userId, email: email.toLowerCase() });
+          await UserModel.updateLastLogin(userId);
+          userProfile = await UserModel.getProfile(userId);
+          console.log('注册成功，用户资料:', userProfile);
         } catch (error) {
-          console.error('标记验证码失败:', error);
+          console.error('生成token或获取用户资料失败:', error);
+          // 如果这一步失败，需要删除刚创建的用户
+          try {
+            await UserModel.hardDelete(userId);
+            console.log('回滚：删除用户', userId);
+          } catch (rollbackError) {
+            console.error('回滚失败:', rollbackError);
+          }
+          return NextResponse.json(AuthUtils.formatErrorResponse('注册过程中发生错误'), { status: 500 });
         }
 
+        // 9. 发送欢迎邮件（非关键步骤，失败不影响注册）
         if (emailService.isAvailable()) {
           try {
             await emailService.sendWelcomeEmail(email, username);
@@ -106,22 +123,12 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        try {
-          const token = AuthUtils.generateToken({ userId, email: email.toLowerCase() });
-          await UserModel.updateLastLogin(userId);
-          const userProfile = await UserModel.getProfile(userId);
-          
-          console.log('注册成功，用户资料:', userProfile);
-          
-          return NextResponse.json(AuthUtils.formatSuccessResponse({
-            message: '注册成功，欢迎加入日语分析器！',
-            token,
-            user: userProfile
-          }));
-        } catch (error) {
-          console.error('生成token或获取用户资料失败:', error);
-          return NextResponse.json(AuthUtils.formatErrorResponse('注册过程中发生错误'), { status: 500 });
-        }
+        // 10. 返回成功结果
+        return NextResponse.json(AuthUtils.formatSuccessResponse({
+          message: '注册成功，欢迎加入日语分析器！',
+          token,
+          user: userProfile
+        }));
 
       case 'password_reset':
         // This logic remains mostly the same
