@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import InputSection from './components/InputSection';
 import AnalysisResult from './components/AnalysisResult';
 import TranslationSection from './components/TranslationSection';
-import LoginModal from './components/LoginModal';
 import AuthModal from './components/AuthModal';
 import UserDashboard from './components/UserDashboard';
 import { authClient, AuthState } from './utils/auth-client';
@@ -72,14 +71,13 @@ export default function Home() {
   });
   const [requiresAuth, setRequiresAuth] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [authMode, setAuthMode] = useState<'user'>('user');
+
 
   useEffect(() => {
     const checkAuthRequirement = async () => {
       try {
         const authRequirement = await authClient.checkAuthRequirement();
         setRequiresAuth(authRequirement.requiresAuth);
-        setAuthMode(authRequirement.mode);
         
         if (!authRequirement.requiresAuth) {
           const currentState = authClient.getCurrentAuthState();
@@ -124,32 +122,15 @@ export default function Home() {
     localStorage.setItem('ttsProvider', provider);
   };
 
-  const handleAuth = async (data: AuthState['user'] | string) => {
+  const handleAuth = (data: { token: string; user: AuthState['user'] }) => {
     try {
       setAuthError('');
-      
-      if (authMode === 'user') {
-        const response = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: data }),
-        });
-        const result = await response.json();
-        if (result.success) {
-          setAuthState({ isAuthenticated: true, user: null, token: null, authMode: 'user' });
-          setRequiresAuth(false);
-        } else {
-          setAuthError(result.message || '验证失败');
-        }
+      if (data && data.token && data.user) {
+        authClient.setUserAuthState(data.token, data.user);
+        setAuthState({ isAuthenticated: true, user: data.user, token: data.token, authMode: 'user' });
+        setRequiresAuth(false);
       } else {
-        if (typeof data === 'object' && data && 'token' in data && 'user' in data) {
-          const authData = data as { token: string; user: AuthState['user'] };
-          if (authData.user) {
-            authClient.setUserAuthState(authData.token, authData.user);
-            setAuthState({ isAuthenticated: true, user: authData.user, token: authData.token, authMode: 'user' });
-            setRequiresAuth(false);
-          }
-        }
+        setAuthError('认证失败，返回数据格式不正确');
       }
     } catch (error) {
       console.error('认证过程中出错:', error);
@@ -201,11 +182,7 @@ export default function Home() {
             </p>
           </div>
         </div>
-        {authMode === 'user' ? (
-          <LoginModal isOpen={true} onLogin={handleAuth} error={authError} />
-        ) : (
-          <AuthModal isOpen={true} onAuth={handleAuth} error={authError} mode="user" />
-        )}
+        <AuthModal isOpen={true} onAuth={handleAuth} error={authError} mode="user" />
       </>
     );
   }
@@ -362,7 +339,7 @@ export default function Home() {
           userInfo={{
             email: authState.user.email,
             username: authState.user.username,
-            created_at: authState.user.created_at.toISOString()
+            created_at: authState.user.created_at ? new Date(authState.user.created_at).toISOString() : new Date().toISOString()
           }}
         />
       )}

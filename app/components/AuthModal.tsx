@@ -6,9 +6,19 @@ import { FaLock, FaEye, FaEyeSlash, FaUser, FaEnvelope, FaArrowLeft, FaCheck } f
 // 认证模式类型
 type AuthMode = 'login' | 'register' | 'verify' | 'reset';
 
+export interface AuthUser {
+  id: number;
+  email: string;
+  username?: string;
+  is_verified: boolean;
+  avatar_url?: string;
+  created_at: Date;
+  last_login_at?: Date;
+}
+
 interface AuthModalProps {
   isOpen: boolean;
-  onAuth: (data: AuthUser | string) => void;
+  onAuth: (data: { token: string, user: AuthUser }) => void;
   error?: string;
   mode?: 'user'; // 只支持完整用户认证
   onModeChange?: (mode: AuthMode) => void;
