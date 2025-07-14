@@ -85,16 +85,22 @@ export class ApiClient {
     apiKey: string
   ): Promise<ApiResponse<T>> {
     try {
+      // 对于Gemini API，需要在URL中添加key参数
+      const url = config.url.includes('generativelanguage.googleapis.com') 
+        ? `${config.url}?key=${apiKey}`
+        : config.url;
+      
       const headers = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        // 只有非Gemini API才使用Bearer token
+        ...(config.url.includes('generativelanguage.googleapis.com') ? {} : { 'Authorization': `Bearer ${apiKey}` }),
         ...config.headers
       };
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), config.timeout || this.defaultTimeout);
 
-      const response = await fetch(config.url, {
+      const response = await fetch(url, {
         method: config.method,
         headers,
         body: config.body ? JSON.stringify(config.body) : undefined,
@@ -113,6 +119,25 @@ export class ApiClient {
       }
 
       const data = await response.json();
+      
+      // 检查Gemini API特有的错误响应格式
+      if (Array.isArray(data) && data.length > 0 && data[0].error) {
+        return {
+          success: false,
+          error: `Gemini API错误: ${data[0].error.message}`,
+          usedKey: apiKey.substring(0, 8) + '...'
+        };
+      }
+      
+      // 检查单个错误对象格式
+      if (data.error) {
+        return {
+          success: false,
+          error: `API错误: ${data.error.message || data.error}`,
+          usedKey: apiKey.substring(0, 8) + '...'
+        };
+      }
+      
       return {
         success: true,
         data,

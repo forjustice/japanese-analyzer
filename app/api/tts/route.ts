@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ApiClient } from '../../utils/api-client';
+import { tokenUsageService } from '../../lib/services/tokenUsageService';
+import { authMiddleware } from '../../lib/utils/auth';
 
 const API_KEY = process.env.API_KEY || '';
 const TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent';
-const MODEL_NAME = 'gemini-2.5-flash-preview-tts';
+const MODEL_NAME = 'models/gemini-2.5-flash-preview-tts';
+
+// 创建API客户端实例
+const apiClient = new ApiClient(API_KEY);
 
 export async function POST(req: NextRequest) {
   try {
     const { text, voice = 'Kore', model = MODEL_NAME } = await req.json();
 
+    // 从请求头中获取用户认证token（不再支持用户自定义API密钥）
     const authHeader = req.headers.get('Authorization');
-    const userApiKey = authHeader ? authHeader.replace('Bearer ', '') : '';
-    const effectiveApiKey = userApiKey || API_KEY;
-
-    if (!effectiveApiKey) {
-      return NextResponse.json(
-        { error: { message: '未提供API密钥，请在设置中配置API密钥或联系管理员配置服务器密钥' } },
-        { status: 500 }
-      );
-    }
+    const userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
+    
+    // 使用服务器端API密钥进行API调用
+    const userApiKey = '';
 
     if (!text) {
       return NextResponse.json(
@@ -25,6 +27,13 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // 获取当前用户信息（用于统计）
+    const authResult = await authMiddleware(false)(req);
+    const currentUser = authResult.user;
+
+    // 估算输入TOKEN数量
+    const tokenEstimate = tokenUsageService.estimateTokens(text);
 
     const payload = {
       contents: [{ parts: [{ text }] }],
@@ -37,28 +46,70 @@ export async function POST(req: NextRequest) {
       model
     };
 
-    const response = await fetch(`${TTS_URL}?key=${effectiveApiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    // 调试信息
+    console.log('TTS Request:', {
+      url: TTS_URL,
+      payload: JSON.stringify(payload),
+      userApiKey: userApiKey ? 'PROVIDED' : 'NOT_PROVIDED',
+      serverApiKey: API_KEY ? 'PROVIDED' : 'NOT_PROVIDED'
     });
 
-    if (!response.ok) {
-      const data = await response.json();
-      console.error('TTS API error:', data);
+    // 使用API客户端发送请求，支持多KEY自动切换
+    const result = await apiClient.makeRequest({
+      url: TTS_URL,
+      method: 'POST',
+      body: payload
+    }, userApiKey);
+
+    if (!result.success) {
+      console.error('TTS API error:', result.error);
+      
+      // 记录失败的TOKEN使用量
+      if (currentUser?.userId) {
+        try {
+          await tokenUsageService.recordTokenUsage({
+            userId: currentUser.userId,
+            apiEndpoint: 'tts',
+            inputTokens: tokenEstimate.inputTokens,
+            outputTokens: 0,
+            modelName: 'gemini-2.5-flash-preview-tts',
+            success: false
+          });
+        } catch (error) {
+          console.error('TOKEN使用量记录失败:', error);
+        }
+      }
+      
       return NextResponse.json(
-        { error: data.error || { message: 'TTS 请求失败' } },
-        { status: response.status }
+        { error: { message: result.error } },
+        { status: 500 }
       );
     }
 
-    const result = await response.json();
-    const inlineData = result.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    const ttsResponse = result.data;
+    const inlineData = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData;
     if (!inlineData) {
       return NextResponse.json(
         { error: { message: '无有效音频数据' } },
         { status: 500 }
       );
+    }
+
+    // 记录成功的TOKEN使用量（TTS输出用音频大小估算）
+    if (currentUser?.userId) {
+      const outputTokens = Math.ceil(inlineData.data.length / 100); // 简单估算
+      try {
+        await tokenUsageService.recordTokenUsage({
+          userId: currentUser.userId,
+          apiEndpoint: 'tts',
+          inputTokens: tokenEstimate.inputTokens,
+          outputTokens: outputTokens,
+          modelName: 'gemini-2.5-flash-preview-tts',
+          success: true
+        });
+      } catch (error) {
+        console.error('TOKEN使用量记录失败:', error);
+      }
     }
 
     return NextResponse.json({ audio: inlineData.data, mimeType: inlineData.mimeType });

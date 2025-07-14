@@ -130,9 +130,9 @@ export function speakJapanese(text: string): void {
 }
 
 // 使用Gemini TTS朗读文本
-export async function speakJapaneseWithTTS(text: string, apiKey?: string, voice?: string): Promise<void> {
+export async function speakJapaneseWithTTS(text: string, voice?: string): Promise<void> {
   try {
-    const url = await getJapaneseTtsAudioUrl(text, apiKey, voice);
+    const url = await getJapaneseTtsAudioUrl(text, undefined, voice);
     const audioElement = new Audio(url);
     audioElement.play();
   } catch (error) {
@@ -143,7 +143,7 @@ export async function speakJapaneseWithTTS(text: string, apiKey?: string, voice?
 
 // 获取 Gemini TTS 音频 URL
 export async function getJapaneseTtsAudioUrl(text: string, apiKey?: string, voice: string = 'Kore'): Promise<string> {
-  const { audio, mimeType } = await synthesizeSpeech(text, voice, apiKey);
+  const { audio, mimeType } = await synthesizeSpeech(text, voice);
   return createPlayableUrlFromPcm(audio, mimeType);
 }
 

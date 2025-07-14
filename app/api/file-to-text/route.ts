@@ -1,26 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// 静态导入以避免动态导入问题
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let pdfParse: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let mammoth: any = null;
-
-// 延迟加载库
-async function loadLibraries() {
-  try {
-    if (!pdfParse) {
-      // 使用pdf-parse-new库
-      pdfParse = (await import('pdf-parse-new')).default;
-    }
-    if (!mammoth) {
-      mammoth = await import('mammoth');
-    }
-  } catch (error) {
-    console.error('加载文档解析库失败:', error);
-    throw error;
-  }
-}
+import { ApiClient } from '../../utils/api-client';
+import { tokenUsageService } from '../../lib/services/tokenUsageService';
+import { authMiddleware } from '../../lib/utils/auth';
+import pdfParse from 'pdf-parse-new';
+import mammoth from 'mammoth';
 
 // 处理PDF提取的文本，改善格式和完整性
 function processPdfText(rawText: string): string {
@@ -68,10 +51,13 @@ function processPdfText(rawText: string): string {
   return processed;
 }
 
-// API密钥从环境变量获取，不暴露给前端
+// API密钥从环境变量获取，支持逗号分隔的多个密钥
 const API_KEY = process.env.API_KEY || '';
-const API_URL = process.env.API_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-const MODEL_NAME = "gemini-2.5-flash-preview-05-20";
+const API_URL = process.env.API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const MODEL_NAME = "gemini-2.5-flash";
+
+// 创建API客户端实例
+const apiClient = new ApiClient(API_KEY);
 
 // 配置API路由支持大尺寸请求
 export const config = {
@@ -92,22 +78,15 @@ export async function POST(req: NextRequest) {
     const apiUrl = formData.get('apiUrl') as string;
     const stream = formData.get('stream') === 'true';
     
-    // 从请求头中获取用户提供的API密钥（如果有）
+    // 从请求头中获取用户认证token（不再支持用户自定义API密钥）
     const authHeader = req.headers.get('Authorization');
-    const userApiKey = authHeader ? authHeader.replace('Bearer ', '') : '';
+    const userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
     
-    // 优先使用用户API密钥，如果没有则使用环境变量中的密钥
-    const effectiveApiKey = userApiKey || API_KEY;
+    // 使用服务器端API密钥进行API调用
+    const userApiKey = '';
     
     // 优先使用用户提供的API URL，否则使用环境变量中的URL
     const effectiveApiUrl = apiUrl || API_URL;
-    
-    if (!effectiveApiKey) {
-      return NextResponse.json(
-        { error: { message: '未提供API密钥，请在设置中配置API密钥或联系管理员配置服务器密钥' } },
-        { status: 500 }
-      );
-    }
 
     if (!file) {
       return NextResponse.json(
@@ -115,6 +94,10 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // 获取当前用户信息（用于统计）
+    const authResult = await authMiddleware(false)(req);
+    const currentUser = authResult.user;
 
     // 检查文件大小限制（50MB）
     if (file.size > 50 * 1024 * 1024) {
@@ -129,9 +112,6 @@ export async function POST(req: NextRequest) {
     const fileName = file.name.toLowerCase();
 
     try {
-      // 先加载必要的库
-      await loadLibraries();
-      
       // 根据文件类型进行处理
       if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
         console.log('开始处理PDF文件:', { fileName, fileType, size: file.size });
@@ -291,99 +271,114 @@ export async function POST(req: NextRequest) {
 文档内容：
 ${extractedText}`;
 
-    // 构建发送到AI服务的请求
+    // 估算输入TOKEN数量
+    const fileTokens = 1000; // 文件处理固定消耗
+    const promptTokens = tokenUsageService.estimateTokens(prompt || defaultPrompt).inputTokens;
+    const totalInputTokens = fileTokens + promptTokens;
+
+    // 构建发送到Gemini API的请求（native格式）
     const payload = {
-      model: model,
-      reasoning_effort: "none",
-      stream: stream,
-      messages: [
-        {
-          role: "user",
-          content: prompt || defaultPrompt
-        }
-      ]
+      contents: [{
+        parts: [{ text: prompt || defaultPrompt }]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.1,
+        maxOutputTokens: 4096,
+      }
     };
 
-    // 发送到实际的AI API
-    const response = await fetch(effectiveApiUrl, {
+    // 使用API客户端发送请求，支持多KEY自动切换
+    const result = await apiClient.makeRequest({
+      url: effectiveApiUrl,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${effectiveApiKey}`
-      },
-      body: JSON.stringify(payload)
-    });
+      body: payload
+    }, userApiKey);
 
-    if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = { message: '无法解析错误响应' };
+    if (!result.success) {
+      console.error('AI API error (File):', result.error);
+      
+      // 记录失败的TOKEN使用量
+      if (currentUser?.userId) {
+        try {
+          await tokenUsageService.recordTokenUsage({
+            userId: currentUser.userId,
+            apiEndpoint: 'file-to-text',
+            inputTokens: totalInputTokens,
+            outputTokens: 0,
+            modelName: 'gemini-2.5-flash',
+            success: false
+          });
+        } catch (error) {
+          console.error('TOKEN使用量记录失败:', error);
+        }
       }
       
-      console.error('AI API error (File):', errorData);
       return NextResponse.json(
-        { error: errorData.error || { message: '处理文件请求时出错' } },
-        { status: response.status }
+        { error: { message: result.error } },
+        { status: 500 }
       );
     }
 
-    // 处理流式响应
+    // 处理响应
     if (stream) {
-      const readableStream = response.body;
-      if (!readableStream) {
-        return NextResponse.json(
-          { error: { message: '流式响应创建失败' } },
-          { status: 500 }
-        );
-      }
-
-      // 创建一个新的流式响应
-      return new NextResponse(readableStream, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive'
-        }
-      });
+      // 暂时不支持文件的流式处理，返回错误
+      return NextResponse.json(
+        { error: { message: '文件处理暂不支持流式响应' } },
+        { status: 400 }
+      );
     } else {
-      // 非流式输出，按原来方式处理
-      // 获取AI API的响应
-      let data;
-      try {
-        const responseText = await response.text();
-        try {
-          data = JSON.parse(responseText);
-        } catch {
-          console.error('Failed to parse API response:', responseText.substring(0, 200) + '...');
-          return NextResponse.json(
-            { error: { message: '无法解析API响应，请稍后重试' } },
-            { status: 500 }
-          );
+      // 非流式输出，转换响应格式
+      const geminiResponse = result.data;
+      
+      // 从Gemini响应中提取文本
+      let extractedAiText = '';
+      if (geminiResponse.candidates && geminiResponse.candidates[0] && geminiResponse.candidates[0].content) {
+        const parts = geminiResponse.candidates[0].content.parts;
+        if (parts && parts[0] && parts[0].text) {
+          extractedAiText = parts[0].text;
         }
-      } catch (readError) {
-        console.error('Failed to read API response:', readError);
-        return NextResponse.json(
-          { error: { message: '读取API响应时出错，请稍后重试' } },
-          { status: 500 }
-        );
       }
-
+      
       // 记录AI处理结果用于调试
-      if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
-        const aiResponse = data.choices[0].message.content;
-        console.log('AI处理后的响应长度:', aiResponse.length);
-        console.log('AI处理后的响应内容（前300字符）:', aiResponse.substring(0, 300));
+      if (extractedAiText) {
+        console.log('AI处理后的响应长度:', extractedAiText.length);
+        console.log('AI处理后的响应内容（前300字符）:', extractedAiText.substring(0, 300));
         
         // 检查AI响应中的日文字符
         const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/;
-        const aiHasJapanese = japaneseRegex.test(aiResponse);
+        const aiHasJapanese = japaneseRegex.test(extractedAiText);
         console.log('AI响应中是否包含日文字符:', aiHasJapanese);
       }
+      
+      // 记录成功的TOKEN使用量
+      if (currentUser?.userId) {
+        const outputTokens = tokenUsageService.estimateTokens(extractedAiText).inputTokens;
+        try {
+          await tokenUsageService.recordTokenUsage({
+            userId: currentUser.userId,
+            apiEndpoint: 'file-to-text',
+            inputTokens: totalInputTokens,
+            outputTokens: outputTokens,
+            modelName: 'gemini-2.5-flash',
+            success: true
+          });
+        } catch (error) {
+          console.error('TOKEN使用量记录失败:', error);
+        }
+      }
 
-      // 将AI API的响应传回给客户端
-      return NextResponse.json(data);
+      // 转换为前端期望的格式（OpenAI兼容格式）
+      const compatibleResponse = {
+        choices: [{
+          message: {
+            content: extractedAiText || '文件文字提取失败：未找到有效的文字内容'
+          }
+        }]
+      };
+      
+      return NextResponse.json(compatibleResponse);
     }
   } catch (error) {
     console.error('Server error (File):', error);

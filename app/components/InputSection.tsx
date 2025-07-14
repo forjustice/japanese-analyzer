@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { extractTextFromImage, streamExtractTextFromImage, extractTextFromFile, streamExtractTextFromFile } from '../services/api';
+import { extractTextFromImage, extractTextFromFile } from '../services/api';
 import { getJapaneseTtsAudioUrl, speakJapanese } from '../utils/helpers';
 import { FaCamera, FaVolumeUp, FaChevronDown, FaDesktop, FaRobot, FaInfoCircle, FaFile } from 'react-icons/fa';
 
@@ -15,8 +15,6 @@ const placeholderStyle = `
 
 interface InputSectionProps {
   onAnalyze: (text: string) => void;
-  userApiKey?: string;
-  userApiUrl?: string;
   useStream?: boolean;
   ttsProvider: 'system' | 'gemini';
   onTtsProviderChange: (provider: 'system' | 'gemini') => void;
@@ -43,8 +41,6 @@ const TTS_STYLES = [
 
 export default function InputSection({ 
   onAnalyze,
-  userApiKey,
-  userApiUrl,
   useStream = true, // 默认启用流式输出
   ttsProvider,
   onTtsProviderChange
@@ -107,7 +103,7 @@ export default function InputSection({
         // 使用 Gemini TTS，添加风格控制
         const stylePrompt = TTS_STYLES.find(s => s.value === selectedStyle)?.prompt || '';
         const textToSpeak = stylePrompt + inputText;
-        const url = await getJapaneseTtsAudioUrl(textToSpeak, userApiKey, selectedVoice);
+        const url = await getJapaneseTtsAudioUrl(textToSpeak, undefined, selectedVoice);
         setTtsAudioUrl(url);
       } else {
         // 使用系统 TTS
@@ -188,52 +184,22 @@ export default function InputSection({
       const shouldReturnRawText = true;
       const finalPrompt = shouldReturnRawText ? 'RETURN_RAW_TEXT' : documentExtractionPrompt;
       
-      if (useStream && !shouldReturnRawText) { // 原始文本模式下使用非流式处理
-        // 使用流式API进行文档文字提取
-        streamExtractTextFromFile(
-          file,
-          (chunk, isDone) => {
-            setInputText(chunk);
-            
-            if (isDone) {
-              setIsFileUploading(false);
-              if (chunk.includes('未找到日文内容')) {
-                setUploadStatus('文档中未找到日文内容。');
-                setUploadStatusClass('mt-2 text-sm text-yellow-600');
-              } else {
-                setUploadStatus('文档解析成功！请确认后点击"解析句子"。');
-                setUploadStatusClass('mt-2 text-sm text-green-600');
-              }
-            }
-          },
-          (error) => {
-            console.error('Error during streaming document text extraction:', error);
-            setUploadStatus(`解析时发生错误: ${error.message || '未知错误'}。`);
-            setUploadStatusClass('mt-2 text-sm text-red-600');
-            setIsFileUploading(false);
-          },
-          finalPrompt,
-          userApiKey,
-          userApiUrl
-        );
+      // 文件上传总是使用直接处理，不使用流式响应
+      console.log('开始非流式API调用，prompt:', finalPrompt);
+      const extractedText = await extractTextFromFile(file, finalPrompt);
+      console.log('非流式API返回的文本长度:', extractedText.length);
+      console.log('非流式API返回的文本内容:', extractedText.substring(0, 200));
+      
+      setInputText(extractedText);
+      
+      if (extractedText.includes('未找到日文内容')) {
+        setUploadStatus('文档中未找到日文内容。');
+        setUploadStatusClass('mt-2 text-sm text-yellow-600');
       } else {
-        // 使用传统API进行文档文字提取
-        console.log('开始非流式API调用，prompt:', finalPrompt);
-        const extractedText = await extractTextFromFile(file, finalPrompt, userApiKey, userApiUrl);
-        console.log('非流式API返回的文本长度:', extractedText.length);
-        console.log('非流式API返回的文本内容:', extractedText.substring(0, 200));
-        
-        setInputText(extractedText);
-        
-        if (extractedText.includes('未找到日文内容')) {
-          setUploadStatus('文档中未找到日文内容。');
-          setUploadStatusClass('mt-2 text-sm text-yellow-600');
-        } else {
-          setUploadStatus('文档解析成功！请确认后点击"解析句子"。');
-          setUploadStatusClass('mt-2 text-sm text-green-600');
-        }
-        setIsFileUploading(false);
+        setUploadStatus('文档解析成功！请确认后点击"解析句子"。');
+        setUploadStatusClass('mt-2 text-sm text-green-600');
       }
+      setIsFileUploading(false);
     } catch (error) {
       console.error('Error during document text extraction:', error);
       setUploadStatus(`解析时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`);
@@ -261,37 +227,12 @@ export default function InputSection({
       // 优化提示词，明确不要换行符
       const imageExtractionPrompt = "请提取并返回这张图片中的所有日文文字。提取的文本应保持原始格式，但不要输出换行符，用空格替代。不要添加任何解释或说明。";
       
-      if (useStream) {
-        // 使用流式API进行图片文字提取
-        streamExtractTextFromImage(
-          compressedImageData,
-          (chunk, isDone) => {
-            setInputText(chunk);
-            
-            if (isDone) {
-              setIsImageUploading(false);
-              setUploadStatus('文字提取成功！请确认后点击"解析句子"。');
-              setUploadStatusClass('mt-2 text-sm text-green-600');
-            }
-          },
-          (error) => {
-            console.error('Error during streaming image text extraction:', error);
-            setUploadStatus(`提取时发生错误: ${error.message || '未知错误'}。`);
-            setUploadStatusClass('mt-2 text-sm text-red-600');
-            setIsImageUploading(false);
-          },
-          imageExtractionPrompt,
-          userApiKey,
-          userApiUrl
-        );
-      } else {
-        // 使用传统API进行图片文字提取
-        const extractedText = await extractTextFromImage(compressedImageData, imageExtractionPrompt, userApiKey, userApiUrl);
-        setInputText(extractedText); 
-        setUploadStatus('文字提取成功！请确认后点击"解析句子"。');
-        setUploadStatusClass('mt-2 text-sm text-green-600');
-        setIsImageUploading(false);
-      }
+      // 图片上传总是使用直接处理，不使用流式响应
+      const extractedText = await extractTextFromImage(compressedImageData, imageExtractionPrompt);
+      setInputText(extractedText); 
+      setUploadStatus('文字提取成功！请确认后点击"解析句子"。');
+      setUploadStatusClass('mt-2 text-sm text-green-600');
+      setIsImageUploading(false);
     } catch (error) {
       console.error('Error during image text extraction:', error);
       setUploadStatus(`提取时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`);

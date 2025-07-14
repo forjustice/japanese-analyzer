@@ -1,26 +1,55 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { containsKanji, getPosClass, posChineseMap, speakJapanese, generateFuriganaParts } from '../utils/helpers';
+import { useState, useEffect, useCallback, memo } from 'react';
+import { containsKanji, getPosClass, posChineseMap, speakJapanese, speakJapaneseWithTTS, generateFuriganaParts } from '../utils/helpers';
 import { getWordDetails, TokenData, WordDetail } from '../services/api';
 import { FaVolumeUp, FaCopy, FaCheck } from 'react-icons/fa';
 
 interface AnalysisResultProps {
   tokens: TokenData[];
   originalSentence: string;
-  userApiKey?: string;
-  userApiUrl?: string;
   showFurigana: boolean;
   onShowFuriganaChange: (show: boolean) => void;
+  ttsProvider?: 'system' | 'gemini';
 }
+
+const TokenComponent = memo(({
+  token,
+  index,
+  showFurigana,
+  onWordClick
+}: {
+  token: TokenData;
+  index: number;
+  showFurigana: boolean;
+  onWordClick: (e: React.MouseEvent<HTMLSpanElement>, token: TokenData) => void;
+}) => {
+  if (token.pos === '改行') {
+    return <br key={index} />;
+  }
+
+  return (
+    <span key={index} className="word-unit-wrapper tooltip">
+      <span className={`word-token ${getPosClass(token.pos)}`} onClick={(e) => onWordClick(e, token)}>
+        {showFurigana && token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号'
+          ? generateFuriganaParts(token.word, token.furigana).map((part, i) =>
+              part.ruby ? <ruby key={i}>{part.base}<rt>{part.ruby}</rt></ruby> : <span key={i}>{part.base}</span>
+            )
+          : token.word}
+      </span>
+      {token.romaji && token.pos !== '记号' && <span className="romaji-text">{token.romaji}</span>}
+      <span className="tooltiptext">{posChineseMap[token.pos.split('-')[0]] || posChineseMap['default']}</span>
+    </span>
+  );
+});
+TokenComponent.displayName = 'TokenComponent';
 
 export default function AnalysisResult({
   tokens,
   originalSentence,
-  userApiKey,
-  userApiUrl,
   showFurigana,
-  onShowFuriganaChange
+  onShowFuriganaChange,
+  ttsProvider = 'system'
 }: AnalysisResultProps) {
   const [wordDetail, setWordDetail] = useState<WordDetail | null>(null);
   const [activeWordToken, setActiveWordToken] = useState<HTMLElement | null>(null);
@@ -37,43 +66,6 @@ export default function AnalysisResult({
     window.addEventListener('resize', checkIsMobile);
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
-
-  const handleWordClick = async (e: React.MouseEvent<HTMLSpanElement>, token: TokenData) => {
-    e.stopPropagation();
-    const target = e.currentTarget as HTMLElement;
-    
-    if (activeWordToken === target) {
-      setActiveWordToken(null);
-      setWordDetail(null);
-      if (isMobile) setIsModalOpen(false);
-      return;
-    }
-
-    if (activeWordToken) activeWordToken.classList.remove('active-word');
-    target.classList.add('active-word');
-    setActiveWordToken(target);
-    
-    setIsLoading(true);
-    if (isMobile) setIsModalOpen(true);
-    
-    try {
-      const details = await getWordDetails(token.word, token.pos, originalSentence, token.furigana, token.romaji, userApiKey, userApiUrl);
-      setWordDetail(details);
-    } catch (error) {
-      console.error('Error fetching word details:', error);
-      setWordDetail({ 
-        originalWord: token.word, 
-        pos: token.pos, 
-        furigana: (token.furigana && token.furigana !== token.word && containsKanji(token.word)) ? token.furigana : '', 
-        romaji: token.romaji || '', 
-        dictionaryForm: '', 
-        chineseTranslation: '错误', 
-        explanation: `查询释义时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleCloseWordDetail = useCallback(() => {
     if (activeWordToken) {
@@ -95,9 +87,54 @@ export default function AnalysisResult({
     return () => document.removeEventListener('click', handleClickOutside);
   }, [activeWordToken, handleCloseWordDetail]);
 
-  const handleWordSpeak = (word: string) => {
+  if (!tokens || tokens.length === 0) {
+    return null;
+  }
+
+  const handleWordClick = async (e: React.MouseEvent<HTMLSpanElement>, token: TokenData) => {
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    
+    if (activeWordToken === target) {
+      setActiveWordToken(null);
+      setWordDetail(null);
+      if (isMobile) setIsModalOpen(false);
+      return;
+    }
+
+    if (activeWordToken) activeWordToken.classList.remove('active-word');
+    target.classList.add('active-word');
+    setActiveWordToken(target);
+    
+    setIsLoading(true);
+    if (isMobile) setIsModalOpen(true);
+    
     try {
-      speakJapanese(word);
+      const details = await getWordDetails(token.word, token.pos, originalSentence, token.furigana, token.romaji);
+      setWordDetail(details);
+    } catch (error) {
+      console.error('Error fetching word details:', error);
+      setWordDetail({
+        originalWord: token.word,
+        pos: token.pos,
+        furigana: (token.furigana && token.furigana !== token.word && containsKanji(token.word)) ? token.furigana : '',
+        romaji: token.romaji || '',
+        dictionaryForm: '',
+        chineseTranslation: '错误',
+        explanation: `查询释义时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleWordSpeak = async (word: string) => {
+    try {
+      if (ttsProvider === 'gemini') {
+        await speakJapaneseWithTTS(word);
+      } else {
+        speakJapanese(word);
+      }
     } catch (error) {
       console.error('朗读失败:', error);
     }
@@ -111,14 +148,8 @@ export default function AnalysisResult({
       .replace(/【([^】]+)】/g, '<strong class="text-indigo-600">$1</strong>')
       .replace(/「([^」]+)」/g, '<strong class="text-indigo-600">$1</strong>');
     
-    // 为日语例句添加furigana支持
-    // 匹配"漢字（ひらがな）"格式并转换为ruby标签（全角括号）
     formattedText = formattedText.replace(/([一-龯々〇ヶ]+)（([ぁ-ゖゝゞァ-ヺー]+)）/g, '<ruby>$1<rt>$2</rt></ruby>');
-    
-    // 匹配"漢字(ひらがな)"格式（半角括号）
     formattedText = formattedText.replace(/([一-龯々〇ヶ]+)\(([ぁ-ゖゝゞァ-ヺー]+)\)/g, '<ruby>$1<rt>$2</rt></ruby>');
-    
-    // 也支持片假名读音
     formattedText = formattedText.replace(/([一-龯々〇ヶ]+)（([ァ-ヺー]+)）/g, '<ruby>$1<rt>$2</rt></ruby>');
     formattedText = formattedText.replace(/([一-龯々〇ヶ]+)\(([ァ-ヺー]+)\)/g, '<ruby>$1<rt>$2</rt></ruby>');
     
@@ -134,7 +165,7 @@ export default function AnalysisResult({
       isHtml = true;
       contentToCopy = tokens.map((token) => {
         if (token.pos === '改行') return '<br>';
-        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号';
+        const shouldUseFurigana = token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '记号';
         
         if (shouldUseFurigana && token.furigana) {
           const parts = generateFuriganaParts(token.word, token.furigana);
@@ -149,15 +180,11 @@ export default function AnalysisResult({
       contentToCopy = plainText;
     }
 
-    console.log('复制内容:', showFurigana ? 'HTML格式' : '纯文本格式');
-
     try {
       if (isHtml) {
-        // 显示自定义弹窗供用户复制HTML代码
         setHtmlContent(contentToCopy);
         setShowHtmlModal(true);
       } else {
-        // 复制纯文本
         const textarea = document.createElement('textarea');
         textarea.value = contentToCopy;
         textarea.style.position = 'fixed';
@@ -194,8 +221,6 @@ export default function AnalysisResult({
       <div className="text-gray-700 bg-gray-50 p-3 rounded-md text-base leading-relaxed" dangerouslySetInnerHTML={formatExplanation(wordDetail.explanation)} />
     </>
   );
-
-  if (!tokens || tokens.length === 0) return null;
 
   return (
     <div className="premium-card">
@@ -235,21 +260,15 @@ export default function AnalysisResult({
         </div>
       </div>
       <div id="analyzedSentenceOutput" className="mb-2 p-3 rounded-lg min-h-[70px]" style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-secondary)' }}>
-        {tokens.map((token, index) => 
-          token.pos === '改行' ? <br key={index} /> : (
-            <span key={index} className="word-unit-wrapper tooltip">
-              <span className={`word-token ${getPosClass(token.pos)}`} onClick={(e) => handleWordClick(e, token)}>
-                {showFurigana && token.furigana && token.furigana !== token.word && containsKanji(token.word) && token.pos !== '記号'
-                  ? generateFuriganaParts(token.word, token.furigana).map((part, i) =>
-                      part.ruby ? <ruby key={i}>{part.base}<rt>{part.ruby}</rt></ruby> : <span key={i}>{part.base}</span>
-                    )
-                  : token.word}
-              </span>
-              {token.romaji && token.pos !== '記号' && <span className="romaji-text">{token.romaji}</span>}
-              <span className="tooltiptext">{posChineseMap[token.pos.split('-')[0]] || posChineseMap['default']}</span>
-            </span>
-          )
-        )}
+        {tokens.map((token, index) => (
+          <TokenComponent
+            key={index}
+            token={token}
+            index={index}
+            showFurigana={showFurigana}
+            onWordClick={handleWordClick}
+          />
+        ))}
       </div>
       
       {!isMobile && (isLoading || wordDetail) && (
@@ -270,7 +289,6 @@ export default function AnalysisResult({
       
       <p className="text-sm italic mt-3" style={{ color: 'var(--text-tertiary)' }}>点击词汇查看详细释义。悬停词汇可查看词性。</p>
       
-      {/* HTML复制弹窗 */}
       {showHtmlModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowHtmlModal(false)}>
           <div className="rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto" 

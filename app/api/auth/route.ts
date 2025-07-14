@@ -2,31 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { password } = await request.json();
-    
-    // 从环境变量获取密码
-    const correctPassword = process.env.CODE;
-    
-    // 如果环境变量没有设置，则无需密码验证
-    if (!correctPassword) {
-      return NextResponse.json({ 
-        success: true, 
-        message: '无需密码验证' 
-      });
-    }
-    
-    // 验证密码
-    if (password === correctPassword) {
-      return NextResponse.json({ 
-        success: true, 
-        message: '验证成功' 
-      });
-    } else {
-      return NextResponse.json({ 
-        success: false, 
-        message: '密码错误，请重试' 
-      }, { status: 401 });
-    }
+    // 简单密码认证功能已移除，只支持用户认证模式
+    return NextResponse.json({ 
+      success: false, 
+      message: '简单密码认证已停用，请使用用户注册/登录功能' 
+    }, { status: 400 });
   } catch (error) {
     console.error('身份验证错误:', error);
     return NextResponse.json({ 
@@ -39,10 +19,21 @@ export async function POST(request: NextRequest) {
 // 获取是否需要密码验证的状态
 export async function GET() {
   try {
-    const correctPassword = process.env.CODE;
+    // 检查是否配置了数据库（只支持用户认证模式）
+    const hasDatabase = !!(process.env.DB_HOST && process.env.DB_USER && process.env.DB_PASSWORD && process.env.DB_NAME);
     
+    if (hasDatabase) {
+      // 如果配置了数据库，返回特殊标识表示应该使用用户认证模式
+      return NextResponse.json({ 
+        useUserAuth: true,
+        message: '使用用户认证模式'
+      });
+    }
+    
+    // 简单密码认证功能已移除，不再支持CODE环境变量
     return NextResponse.json({ 
-      requiresAuth: !!correctPassword 
+      requiresAuth: false,
+      message: '简单密码认证已停用，建议配置数据库使用用户认证模式'
     });
   } catch (error) {
     console.error('获取验证状态错误:', error);

@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { translateText, streamTranslateText } from '../services/api';
+import { translateText } from '../services/api';
 
 interface TranslationSectionProps {
   japaneseText: string;
-  userApiKey?: string;
-  userApiUrl?: string;
   useStream?: boolean;
   trigger?: number;
   onTranslationUpdate?: (translation: string) => void;
@@ -14,9 +12,6 @@ interface TranslationSectionProps {
 
 export default function TranslationSection({
   japaneseText,
-  userApiKey,
-  userApiUrl,
-  useStream = true, // 默认为true，保持向后兼容
   trigger,
   onTranslationUpdate
 }: TranslationSectionProps) {
@@ -31,39 +26,19 @@ export default function TranslationSection({
     }
 
     setIsLoading(true);
-    setIsVisible(true); // 确保显示翻译区域
-    setTranslation(''); // 清空之前的翻译结果
+    setIsVisible(true);
+    setTranslation('');
 
     try {
-      if (useStream) {
-        // 使用流式API进行翻译
-        streamTranslateText(
-          japaneseText,
-          (chunk, isDone) => {
-            setTranslation(chunk);
-            onTranslationUpdate?.(chunk);
-            if (isDone) {
-              setIsLoading(false);
-            }
-          },
-          (error) => {
-            console.error('Error during streaming translation:', error);
-            setTranslation(`翻译时发生错误: ${error.message || '未知错误'}。`);
-            setIsLoading(false);
-          },
-          userApiKey,
-          userApiUrl
-        );
-      } else {
-        // 使用传统API进行翻译
-        const translatedText = await translateText(japaneseText, userApiKey, userApiUrl);
-        setTranslation(translatedText);
-        onTranslationUpdate?.(translatedText);
-        setIsLoading(false);
+      const translatedText = await translateText(japaneseText);
+      setTranslation(translatedText);
+      if (onTranslationUpdate) {
+        onTranslationUpdate(translatedText);
       }
     } catch (error) {
       console.error('Error during full sentence translation:', error);
       setTranslation(`翻译时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -72,7 +47,6 @@ export default function TranslationSection({
     setIsVisible(!isVisible);
   };
 
-  // 当trigger变化时自动开始翻译
   useEffect(() => {
     if (trigger && japaneseText) {
       handleTranslate();
@@ -124,4 +98,4 @@ export default function TranslationSection({
       )}
     </>
   );
-} 
+}
