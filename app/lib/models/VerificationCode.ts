@@ -143,10 +143,16 @@ export class VerificationCodeModel {
         type, 
         codeType: typeof codeStr, 
         codeLength: codeStr.length,
-        jsCurrentTime: jsNow.toISOString()
+        jsCurrentTime: jsNow.toISOString(),
+        jsCurrentTimeMs: jsNow.getTime()
       });
+      
       const [rows] = await connection.execute(sql, [email, codeStr, type, jsNow]);
-      console.log('🔍 [VerificationCode] 原始查询结果:', { rowCount: Array.isArray(rows) ? rows.length : 0, rows });
+      console.log('🔍 [VerificationCode] 原始查询结果:', { 
+        rowCount: Array.isArray(rows) ? rows.length : 0, 
+        firstRow: Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+      });
+      
       const verificationCode = Array.isArray(rows) && rows.length > 0 ? rows[0] as VerificationCode : null;
       
       if (!verificationCode) {
