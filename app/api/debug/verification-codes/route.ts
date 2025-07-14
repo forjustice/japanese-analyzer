@@ -19,16 +19,12 @@ export async function GET(request: NextRequest) {
     // 查询该邮箱的所有验证码
     const allCodesSql = `
       SELECT id, email, code, type, is_used, expires_at, created_at,
-             UTC_TIMESTAMP() as current_utc_time,
-             NOW() as current_local_time,
-             (expires_at > UTC_TIMESTAMP()) as is_not_expired_utc,
-             (expires_at > NOW()) as is_not_expired_local,
-             TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), expires_at) as minutes_until_expiry_utc,
-             TIMESTAMPDIFF(MINUTE, NOW(), expires_at) as minutes_until_expiry_local
-      FROM verification_codes 
+             UTC_TIMESTAMP() as current_mysql_time,
+             (expires_at > UTC_TIMESTAMP()) as is_not_expired
+      FROM verification_codes
       WHERE email = ? AND type = ?
-      ORDER BY created_at DESC 
-      LIMIT 10
+      ORDER BY created_at DESC
+      LIMIT 50
     `;
 
     const codes = await db.query(allCodesSql, [email, type]);

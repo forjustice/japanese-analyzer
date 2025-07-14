@@ -69,15 +69,15 @@ export async function GET() {
       };
     }
 
-    // 测试时区和时间
+    // ��试时区和时间
     const timeTest = {
       jsDate: new Date().toISOString(),
-      mysqlNow: null as { current_time: string } | { error: string } | null,
+      mysqlNow: null as { current_mysql_time: string } | { error: string } | null,
       timezoneOffset: new Date().getTimezoneOffset(),
     };
 
     try {
-      const mysqlTimeResult = await db.query<{ current_time: string }>('SELECT NOW() as current_time');
+      const mysqlTimeResult = await db.query<{ current_mysql_time: string }>('SELECT UTC_TIMESTAMP() as current_mysql_time');
       timeTest.mysqlNow = mysqlTimeResult[0] || null;
     } catch (error) {
       timeTest.mysqlNow = { error: (error as Error).message };
@@ -117,8 +117,8 @@ async function testVerificationCodeFlow() {
     // 查询现有验证码
     const existingCodes = await db.query(`
       SELECT id, email, code, type, is_used, expires_at, created_at,
-             NOW() as current_time,
-             (expires_at > NOW()) as is_not_expired
+             UTC_TIMESTAMP() as current_mysql_time,
+             (expires_at > UTC_TIMESTAMP()) as is_not_expired
       FROM verification_codes 
       WHERE email = ? AND type = ?
       ORDER BY created_at DESC 
