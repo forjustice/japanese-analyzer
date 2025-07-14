@@ -14,7 +14,7 @@ const apiClient = new ApiClient(API_KEY);
 export async function POST(req: NextRequest) {
   try {
     // 首先检查TOKEN使用量限制
-    const tokenLimitCheck = createTokenLimitMiddleware(false);
+    const tokenLimitCheck = createTokenLimitMiddleware(true);
     const limitResult = await tokenLimitCheck(req);
     if (limitResult) {
       return limitResult; // 如果超出限制，直接返回错误响应
