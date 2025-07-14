@@ -5,7 +5,9 @@ import mysql from 'mysql2/promise';
 export class VerificationCodeModel {
   // 生成6位数字验证码
   static generateCode(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log('🔢 [VerificationCode] 生成验证码:', { code, length: code.length, type: typeof code });
+    return code;
   }
 
   // 创建验证码
@@ -28,11 +30,32 @@ export class VerificationCodeModel {
       VALUES (?, ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? MINUTE))
     `;
     
+    console.log('📝 [VerificationCode] 执行SQL:', { sql, params: [user_id || null, email, code, type, expirationMinutes] });
+    
     const id = await db.insert(sql, [user_id || null, email, code, type, expirationMinutes]);
     
-    // 获取实际的过期时间用于日志
-    const createdCode = await db.queryOne<{ expires_at: string }>('SELECT expires_at FROM verification_codes WHERE id = ?', [id]);
-    console.log('✅ [VerificationCode] 验证码创建成功:', { id, code, expires_at: createdCode?.expires_at });
+    // 获取实际创建的验证码记录进行验证
+    const createdCode = await db.queryOne<{ 
+      id: number; 
+      email: string; 
+      code: string; 
+      type: string; 
+      expires_at: string; 
+      is_used: boolean; 
+      created_at: string 
+    }>('SELECT id, email, code, type, expires_at, is_used, created_at FROM verification_codes WHERE id = ?', [id]);
+    
+    console.log('✅ [VerificationCode] 验证码创建成功，数据库记录:', JSON.stringify(createdCode, null, 2));
+    
+    // 立即验证创建的验证码是否能被查询到
+    const verifyTestSql = `
+      SELECT * FROM verification_codes 
+      WHERE email = ? AND code = ? AND type = ? AND is_used = FALSE AND expires_at > UTC_TIMESTAMP()
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `;
+    const verifyTest = await db.queryOne(verifyTestSql, [email, code, type]);
+    console.log('🔍 [VerificationCode] 创建后立即验证查询结果:', JSON.stringify(verifyTest, null, 2));
     
     return { id, code };
   }
@@ -53,19 +76,22 @@ export class VerificationCodeModel {
   static async verifyAndMarkUsed(email: string, code: string, type: string): Promise<VerificationCode | null> {
     console.log('🔍 [VerificationCode] 开始原子性验证:', { email, code, type });
     
-    // 先查询当前状态用于调试
+    // 先查询当前状态用于调试（使用UTC时间）
     const debugSql = `
       SELECT id, email, code, type, is_used, expires_at, created_at,
-             NOW() as \`current_time\`,
-             (expires_at > NOW()) as is_not_expired,
-             TIMESTAMPDIFF(MINUTE, NOW(), expires_at) as minutes_until_expiry
+             UTC_TIMESTAMP() as \`current_utc_time\`,
+             NOW() as \`current_local_time\`,
+             (expires_at > UTC_TIMESTAMP()) as is_not_expired_utc,
+             (expires_at > NOW()) as is_not_expired_local,
+             TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), expires_at) as minutes_until_expiry_utc,
+             TIMESTAMPDIFF(MINUTE, NOW(), expires_at) as minutes_until_expiry_local
       FROM verification_codes 
       WHERE email = ? AND type = ?
       ORDER BY created_at DESC 
       LIMIT 3
     `;
     const debugResult = await db.query(debugSql, [email, type]);
-    console.log('🔍 [VerificationCode] 当前邮箱的验证码状态:', debugResult);
+    console.log('🔍 [VerificationCode] 当前邮箱的验证码状态:', JSON.stringify(debugResult, null, 2));
     
     // 如果是Vercel环境，添加更多调试信息
     if (process.env.VERCEL_ENV) {
@@ -104,14 +130,26 @@ export class VerificationCodeModel {
           SELECT id, email, code, type, is_used, expires_at, created_at,
                  UTC_TIMESTAMP() as current_utc_time,
                  (expires_at > UTC_TIMESTAMP()) as is_not_expired_utc,
-                 TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), expires_at) as minutes_until_expiry_utc
+                 TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), expires_at) as minutes_until_expiry_utc,
+                 (code = ?) as code_matches
           FROM verification_codes 
           WHERE email = ? AND type = ?
           ORDER BY created_at DESC 
           LIMIT 5
         `;
-        const allCodesResult = await connection.execute(allCodesSql, [email, type]);
-        console.log('🔍 [VerificationCode] 所有相关验证码:', allCodesResult[0]);
+        const allCodesResult = await connection.execute(allCodesSql, [code, email, type]);
+        console.log('🔍 [VerificationCode] 所有相关验证码:', JSON.stringify(allCodesResult[0], null, 2));
+        
+        // 单独检查是否存在匹配的验证码（忽略时间和使用状态）
+        const codeExistsSql = `
+          SELECT id, email, code, type, is_used, expires_at, created_at
+          FROM verification_codes 
+          WHERE email = ? AND code = ? AND type = ?
+          ORDER BY created_at DESC 
+          LIMIT 1
+        `;
+        const codeExistsResult = await connection.execute(codeExistsSql, [email, code, type]);
+        console.log('🔍 [VerificationCode] 匹配的验证码查询结果:', JSON.stringify(codeExistsResult[0], null, 2));
         
         await db.rollbackTransaction(connection);
         return null;

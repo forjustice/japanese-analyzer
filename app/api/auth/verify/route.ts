@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(AuthUtils.formatErrorResponse('用户不存在'), { status: 404 });
         }
         const resetToken = AuthUtils.generateSecureToken(32);
-        await VerificationCodeModel.markAsUsed(verificationCode.id);
+        // 验证码已在 verifyAndMarkUsed 中被标记为已使用，无需重复调用
         // In a real app, you'd save this resetToken to the DB with an expiry
         return NextResponse.json(AuthUtils.formatSuccessResponse({
             message: '验证码验证成功，请设置新密码',
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
 
       case 'email_change':
         // This logic remains mostly the same
-        await VerificationCodeModel.markAsUsed(verificationCode.id);
+        // 验证码已在 verifyAndMarkUsed 中被标记为已使用，无需重复调用
         return NextResponse.json(AuthUtils.formatSuccessResponse({
             message: '邮箱变更验证成功'
         }));
