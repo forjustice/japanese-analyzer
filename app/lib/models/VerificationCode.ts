@@ -24,10 +24,10 @@ export class VerificationCodeModel {
     const deletedCount = await this.deleteByEmailAndType(email, type);
     console.log('🗑️ [VerificationCode] 删除旧验证码数量:', deletedCount);
 
-    // 使用 MySQL 的 UTC_TIMESTAMP() 和 DATE_ADD() 来确保时区一致性
+    // 使用 MySQL 的 NOW() 和 DATE_ADD() 来确保时区一致性（数据库连接已设置为UTC）
     const sql = `
       INSERT INTO verification_codes (user_id, email, code, type, expires_at)
-      VALUES (?, ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? MINUTE))
+      VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))
     `;
     
     console.log('📝 [VerificationCode] 执行SQL:', { sql, params: [user_id || null, email, code, type, expirationMinutes] });
@@ -50,7 +50,7 @@ export class VerificationCodeModel {
     // 立即验证创建的验证码是否能被查询到
     const verifyTestSql = `
       SELECT * FROM verification_codes 
-      WHERE email = ? AND code = ? AND type = ? AND is_used = FALSE AND expires_at > UTC_TIMESTAMP()
+      WHERE email = ? AND code = ? AND type = ? AND is_used = FALSE AND expires_at > NOW()
       ORDER BY created_at DESC 
       LIMIT 1
     `;
@@ -64,7 +64,7 @@ export class VerificationCodeModel {
   static async verify(email: string, code: string, type: string): Promise<VerificationCode | null> {
     const sql = `
       SELECT * FROM verification_codes 
-      WHERE email = ? AND code = ? AND type = ? AND is_used = FALSE AND expires_at > UTC_TIMESTAMP()
+      WHERE email = ? AND code = ? AND type = ? AND is_used = FALSE AND expires_at > NOW()
       ORDER BY created_at DESC 
       LIMIT 1
     `;
@@ -74,17 +74,16 @@ export class VerificationCodeModel {
 
   // 原子性验证并标记验证码为已使用（防止竞态条件）
   static async verifyAndMarkUsed(email: string, code: string, type: string): Promise<VerificationCode | null> {
-    console.log('🔍 [VerificationCode] 开始原子性验证:', { email, code, type });
+    // 确保验证码是字符串类型
+    const codeStr = String(code).trim();
+    console.log('🔍 [VerificationCode] 开始原子性验证:', { email, code, codeStr, type, originalCodeType: typeof code });
     
-    // 先查询当前状态用于调试（使用UTC时间）
+    // 先查询当前状态用于调试（统一使用NOW()）
     const debugSql = `
       SELECT id, email, code, type, is_used, expires_at, created_at,
-             UTC_TIMESTAMP() as \`current_utc_time\`,
-             NOW() as \`current_local_time\`,
-             (expires_at > UTC_TIMESTAMP()) as is_not_expired_utc,
-             (expires_at > NOW()) as is_not_expired_local,
-             TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), expires_at) as minutes_until_expiry_utc,
-             TIMESTAMPDIFF(MINUTE, NOW(), expires_at) as minutes_until_expiry_local
+             NOW() as \`current_time\`,
+             (expires_at > NOW()) as is_not_expired,
+             TIMESTAMPDIFF(MINUTE, NOW(), expires_at) as minutes_until_expiry
       FROM verification_codes 
       WHERE email = ? AND type = ?
       ORDER BY created_at DESC 
@@ -108,17 +107,24 @@ export class VerificationCodeModel {
     const connection = await db.beginTransaction();
     
     try {
-      // 使用 UTC_TIMESTAMP() 替代 NOW() 来避免时区问题
+      // 使用 NOW() 进行时间比较（数据库连接已设置为UTC）
       const sql = `
         SELECT * FROM verification_codes 
-        WHERE email = ? AND code = ? AND type = ? AND is_used = FALSE AND expires_at > UTC_TIMESTAMP()
+        WHERE email = ? AND code = ? AND type = ? AND is_used = FALSE AND expires_at > NOW()
         ORDER BY created_at DESC 
         LIMIT 1
         FOR UPDATE
       `;
       
-      console.log('🔍 [VerificationCode] 执行验证查询:', { email, code, type });
-      const [rows] = await connection.execute(sql, [email, code, type]);
+      console.log('🔍 [VerificationCode] 执行验证查询:', { 
+        email, 
+        code: codeStr, 
+        type, 
+        codeType: typeof codeStr, 
+        codeLength: codeStr.length 
+      });
+      const [rows] = await connection.execute(sql, [email, codeStr, type]);
+      console.log('🔍 [VerificationCode] 原始查询结果:', { rowCount: Array.isArray(rows) ? rows.length : 0, rows });
       const verificationCode = Array.isArray(rows) && rows.length > 0 ? rows[0] as VerificationCode : null;
       
       if (!verificationCode) {
@@ -128,16 +134,16 @@ export class VerificationCodeModel {
         // 如果没有找到有效验证码，查询所有相关验证码进行调试
         const allCodesSql = `
           SELECT id, email, code, type, is_used, expires_at, created_at,
-                 UTC_TIMESTAMP() as current_utc_time,
-                 (expires_at > UTC_TIMESTAMP()) as is_not_expired_utc,
-                 TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), expires_at) as minutes_until_expiry_utc,
+                 NOW() as current_time,
+                 (expires_at > NOW()) as is_not_expired,
+                 TIMESTAMPDIFF(MINUTE, NOW(), expires_at) as minutes_until_expiry,
                  (code = ?) as code_matches
           FROM verification_codes 
           WHERE email = ? AND type = ?
           ORDER BY created_at DESC 
           LIMIT 5
         `;
-        const allCodesResult = await connection.execute(allCodesSql, [code, email, type]);
+        const allCodesResult = await connection.execute(allCodesSql, [codeStr, email, type]);
         console.log('🔍 [VerificationCode] 所有相关验证码:', JSON.stringify(allCodesResult[0], null, 2));
         
         // 单独检查是否存在匹配的验证码（忽略时间和使用状态）
@@ -148,7 +154,7 @@ export class VerificationCodeModel {
           ORDER BY created_at DESC 
           LIMIT 1
         `;
-        const codeExistsResult = await connection.execute(codeExistsSql, [email, code, type]);
+        const codeExistsResult = await connection.execute(codeExistsSql, [email, codeStr, type]);
         console.log('🔍 [VerificationCode] 匹配的验证码查询结果:', JSON.stringify(codeExistsResult[0], null, 2));
         
         await db.rollbackTransaction(connection);
@@ -220,7 +226,7 @@ export class VerificationCodeModel {
 
   // 清理过期的验证码
   static async cleanExpired(): Promise<number> {
-    const sql = 'DELETE FROM verification_codes WHERE expires_at < UTC_TIMESTAMP()';
+    const sql = 'DELETE FROM verification_codes WHERE expires_at < NOW()';
     return await db.delete(sql);
   }
 
@@ -233,7 +239,7 @@ export class VerificationCodeModel {
   }> {
     const totalSql = 'SELECT COUNT(*) as count FROM verification_codes';
     const usedSql = 'SELECT COUNT(*) as count FROM verification_codes WHERE is_used = TRUE';
-    const expiredSql = 'SELECT COUNT(*) as count FROM verification_codes WHERE expires_at < UTC_TIMESTAMP()';
+    const expiredSql = 'SELECT COUNT(*) as count FROM verification_codes WHERE expires_at < NOW()';
     const byTypeSql = 'SELECT type, COUNT(*) as count FROM verification_codes GROUP BY type';
 
     const [totalResult, usedResult, expiredResult, byTypeResults] = await Promise.all([

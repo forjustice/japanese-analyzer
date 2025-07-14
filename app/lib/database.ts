@@ -10,7 +10,7 @@ const createDbConfig = () => {
     database: process.env.DB_NAME || 'japanese_analyzer',
     charset: 'utf8mb4',
     connectionLimit: process.env.VERCEL_ENV ? 5 : 10,
-    timezone: '+00:00',
+    timezone: 'Z', // 强制使用UTC时区
     connectTimeout: process.env.VERCEL_ENV ? 30000 : 60000,
   };
 
