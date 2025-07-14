@@ -3,11 +3,11 @@
 import { useState } from 'react';
 
 export default function DebugPage() {
-  const [environmentResult, setEnvironmentResult] = useState<any>(null);
-  const [sendCodeResult, setSendCodeResult] = useState<any>(null);
-  const [debugResult, setDebugResult] = useState<any>(null);
-  const [fullRegResult, setFullRegResult] = useState<any>(null);
-  const [diagnosticData, setDiagnosticData] = useState<any>({});
+  const [environmentResult, setEnvironmentResult] = useState<string>('');
+  const [sendCodeResult, setSendCodeResult] = useState<string>('');
+  const [debugResult, setDebugResult] = useState<string>('');
+  const [fullRegResult, setFullRegResult] = useState<string>('');
+  const [diagnosticData, setDiagnosticData] = useState<Record<string, unknown>>({});
 
   const [testEmail, setTestEmail] = useState('test@example.com');
   const [debugEmail, setDebugEmail] = useState('test@example.com');
@@ -17,12 +17,12 @@ export default function DebugPage() {
   const [regUsername, setRegUsername] = useState('testuser');
   const [regCode, setRegCode] = useState('');
 
-  const log = (message: string, setter?: (value: any) => void) => {
+  const log = (message: string, setter?: React.Dispatch<React.SetStateAction<string>>) => {
     const timestamp = new Date().toISOString();
     const logMessage = `[${timestamp}] ${message}`;
     
     if (setter) {
-      setter((prev: any) => prev + logMessage + '\n');
+      setter((prev: string) => prev + logMessage + '\n');
     }
     
     console.log(logMessage);
@@ -35,7 +35,7 @@ export default function DebugPage() {
       const response = await fetch('/api/debug/environment');
       const data = await response.json();
       
-      setDiagnosticData(prev => ({ ...prev, environment: data.data }));
+      setDiagnosticData(prev => ({ ...prev, environment: data.data as Record<string, unknown> }));
       
       log(`📊 环境检查完成`, setEnvironmentResult);
       log(`Node环境: ${data.data.environment.nodeEnv}`, setEnvironmentResult);
@@ -92,7 +92,7 @@ export default function DebugPage() {
       
       const data = await response.json();
       
-      setDiagnosticData(prev => ({ ...prev, verifyCode: data.data }));
+      setDiagnosticData(prev => ({ ...prev, verifyCode: data.data as Record<string, unknown> }));
       
       log(`📊 验证码调试完成`, setDebugResult);
       log(JSON.stringify(data.data, null, 2), setDebugResult);
