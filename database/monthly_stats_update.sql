@@ -37,12 +37,12 @@ SELECT
     u.created_at as registration_date,
     YEAR(CURRENT_DATE()) as current_year,
     MONTH(CURRENT_DATE()) as current_month,
-    COALESCE(SUM(CASE WHEN utu.created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.created_at < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) THEN utu.input_tokens + utu.output_tokens END), 0) as total_tokens_current_month,
-    COALESCE(SUM(CASE WHEN utu.created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.created_at < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND utu.api_endpoint = 'analyze' THEN utu.input_tokens + utu.output_tokens END), 0) as analyze_tokens,
-    COALESCE(SUM(CASE WHEN utu.created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.created_at < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND utu.api_endpoint = 'translate' THEN utu.input_tokens + utu.output_tokens END), 0) as translate_tokens,
-    COALESCE(SUM(CASE WHEN utu.created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.created_at < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND utu.api_endpoint = 'tts' THEN utu.input_tokens + utu.output_tokens END), 0) as tts_tokens,
-    COALESCE(SUM(CASE WHEN utu.created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.created_at < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND utu.api_endpoint IN ('image-to-text', 'file-to-text') THEN utu.input_tokens + utu.output_tokens END), 0) as ocr_tokens,
-    COALESCE(COUNT(CASE WHEN utu.created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.created_at < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) THEN 1 END), 0) as total_requests_current_month,
+    COALESCE(SUM(CASE WHEN utu.request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) THEN utu.input_tokens + utu.output_tokens END), 0) as total_tokens_current_month,
+    COALESCE(SUM(CASE WHEN utu.request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND utu.api_endpoint = 'analyze' THEN utu.input_tokens + utu.output_tokens END), 0) as analyze_tokens,
+    COALESCE(SUM(CASE WHEN utu.request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND utu.api_endpoint = 'translate' THEN utu.input_tokens + utu.output_tokens END), 0) as translate_tokens,
+    COALESCE(SUM(CASE WHEN utu.request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND utu.api_endpoint = 'tts' THEN utu.input_tokens + utu.output_tokens END), 0) as tts_tokens,
+    COALESCE(SUM(CASE WHEN utu.request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND utu.api_endpoint IN ('image-to-text', 'file-to-text') THEN utu.input_tokens + utu.output_tokens END), 0) as ocr_tokens,
+    COALESCE(COUNT(CASE WHEN utu.request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AND utu.request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH) THEN 1 END), 0) as total_requests_current_month,
     LAST_DAY(CURRENT_DATE()) as current_month_end,
     DAY(LAST_DAY(CURRENT_DATE())) - DAY(CURRENT_DATE()) as days_remaining_in_month
 FROM users u
@@ -55,14 +55,14 @@ DROP VIEW IF EXISTS user_daily_token_usage;
 CREATE OR REPLACE VIEW user_daily_token_usage AS
 SELECT 
     user_id,
-    DATE(created_at) as usage_date,
+    DATE(request_time) as usage_date,
     api_endpoint,
     SUM(input_tokens + output_tokens) as daily_tokens,
     COUNT(*) as daily_requests,
-    YEAR(created_at) as usage_year,
-    MONTH(created_at) as usage_month
+    YEAR(request_time) as usage_year,
+    MONTH(request_time) as usage_month
 FROM user_token_usage
-GROUP BY user_id, DATE(created_at), api_endpoint
+GROUP BY user_id, DATE(request_time), api_endpoint
 ORDER BY user_id, usage_date DESC, api_endpoint;
 
 -- 5. 创建月度汇总表（可选，用于缓存月度统计）
@@ -124,8 +124,8 @@ BEGIN
             COUNT(*)
         FROM user_token_usage 
         WHERE user_id = v_user_id 
-          AND created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') 
-          AND created_at < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+          AND request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') 
+          AND request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
         ON DUPLICATE KEY UPDATE
             total_tokens = VALUES(total_tokens),
             analyze_tokens = VALUES(analyze_tokens),

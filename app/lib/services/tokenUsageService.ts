@@ -38,8 +38,8 @@ class TokenUsageService {
       charset: 'utf8mb4'
     });
 
-    // 自动更新数据库结构
-    this.initializeMonthlyStats();
+    // 自动更新数据库结构（暂时禁用以避免影响解析功能）
+    // this.initializeMonthlyStats();
   }
 
   /**
@@ -101,8 +101,8 @@ class TokenUsageService {
              COUNT(*) as total_requests
            FROM user_token_usage 
            WHERE user_id = ? 
-             AND created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') 
-             AND created_at < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH)`,
+             AND request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') 
+             AND request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH)`,
           [userId]
         );
 
@@ -169,15 +169,15 @@ class TokenUsageService {
       try {
         const [rows] = await connection.execute(
           `SELECT 
-             DATE(created_at) as usage_date,
+             DATE(request_time) as usage_date,
              api_endpoint,
              SUM(input_tokens + output_tokens) as total_tokens,
              COUNT(*) as request_count
            FROM user_token_usage 
            WHERE user_id = ? 
-             AND created_at >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') 
-             AND created_at < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
-           GROUP BY DATE(created_at), api_endpoint
+             AND request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') 
+             AND request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+           GROUP BY DATE(request_time), api_endpoint
            ORDER BY usage_date DESC, api_endpoint`,
           [userId]
         );

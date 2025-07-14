@@ -361,7 +361,7 @@ export default function Home() {
       setAnalyzedTokens(finalTokens);
       
       // 异步保存历史记录，不阻塞UI
-      saveAnalysisToHistory(text, finalTokens, currentTranslation).catch(error => {
+      saveAnalysisToHistory(text, finalTokens, currentTranslation || '').catch(error => {
         console.error('Failed to save analysis to history:', error);
       });
 
