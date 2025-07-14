@@ -186,6 +186,8 @@ export default function AuthModal({
           });
           
           const verifyData = await verifyResponse.json();
+          console.log('注册验证响应:', verifyData);
+          console.log('响应状态:', verifyResponse.status);
           
           if (verifyData.success) {
             // 验证成功，自动登录
@@ -196,6 +198,7 @@ export default function AuthModal({
               onAuth(verifyData.data);
             }, 1000);
           } else {
+            console.error('注册失败详情:', verifyData);
             setLocalError(verifyData.message || '验证失败');
           }
           break;

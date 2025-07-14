@@ -65,36 +65,63 @@ export async function POST(request: NextRequest) {
             username,
             is_verified: true
           });
+          console.log('用户创建成功，用户ID:', userId);
         } catch (error: unknown) {
           console.error('用户创建失败:', error);
+          // 如果是数据库唯一约束错误，可能用户已经存在
           if (error instanceof Error && (error.message?.includes('UNIQUE constraint failed') || error.message?.includes('邮箱已经被注册'))) {
-            return NextResponse.json(
-              AuthUtils.formatErrorResponse('该邮箱已被注册'),
-              { status: 409 }
-            );
+            // 检查是否已经有一个已验证的用户
+            const existingVerifiedUser = await UserModel.findByEmail(email.toLowerCase());
+            if (existingVerifiedUser && existingVerifiedUser.is_verified) {
+              return NextResponse.json(
+                AuthUtils.formatErrorResponse('该邮箱已被注册'),
+                { status: 409 }
+              );
+            }
+            // 如果用户存在但未验证，使用现有用户ID
+            if (existingVerifiedUser) {
+              userId = existingVerifiedUser.id;
+              console.log('使用现有用户ID:', userId);
+            } else {
+              return NextResponse.json(AuthUtils.formatErrorResponse('用户创建失败'), { status: 500 });
+            }
+          } else {
+            return NextResponse.json(AuthUtils.formatErrorResponse('用户创建失败'), { status: 500 });
           }
-          return NextResponse.json(AuthUtils.formatErrorResponse('用户创建失败'), { status: 500 });
         }
 
-        await VerificationCodeModel.markAsUsed(verificationCode.id);
+        try {
+          await VerificationCodeModel.markAsUsed(verificationCode.id);
+          console.log('验证码标记为已使用');
+        } catch (error) {
+          console.error('标记验证码失败:', error);
+        }
 
         if (emailService.isAvailable()) {
           try {
             await emailService.sendWelcomeEmail(email, username);
+            console.log('欢迎邮件发送成功');
           } catch (emailError) {
             console.error('欢迎邮件发送失败:', emailError);
           }
         }
 
-        const token = AuthUtils.generateToken({ userId, email: email.toLowerCase() });
-        await UserModel.updateLastLogin(userId);
-        const userProfile = await UserModel.getProfile(userId);
-
-        return NextResponse.json(AuthUtils.formatSuccessResponse({
-          message: '注册成功，欢迎加入日语分析器！',
-          token,
-          user: userProfile
-        }));
+        try {
+          const token = AuthUtils.generateToken({ userId, email: email.toLowerCase() });
+          await UserModel.updateLastLogin(userId);
+          const userProfile = await UserModel.getProfile(userId);
+          
+          console.log('注册成功，用户资料:', userProfile);
+          
+          return NextResponse.json(AuthUtils.formatSuccessResponse({
+            message: '注册成功，欢迎加入日语分析器！',
+            token,
+            user: userProfile
+          }));
+        } catch (error) {
+          console.error('生成token或获取用户资料失败:', error);
+          return NextResponse.json(AuthUtils.formatErrorResponse('注册过程中发生错误'), { status: 500 });
+        }
 
       case 'password_reset':
         // This logic remains mostly the same
