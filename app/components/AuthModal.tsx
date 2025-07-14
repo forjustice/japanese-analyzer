@@ -336,17 +336,29 @@ export default function AuthModal({
 
   // 发送验证码（注册时）
   const handleSendCode = async () => {
+    console.log('🚀 [Frontend] 开始发送验证码流程');
+    console.log('📝 [Frontend] 当前表单数据:', {
+      email: formData.email,
+      hasPassword: !!formData.password,
+      hasConfirmPassword: !!formData.confirmPassword,
+      passwordsMatch: formData.password === formData.confirmPassword,
+      passwordStrength: passwordStrength
+    });
+
     if (!formData.email || !formData.password) {
+      console.error('❌ [Frontend] 邮箱或密码为空');
       setLocalError('请先填写邮箱和密码');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
+      console.error('❌ [Frontend] 两次密码不一致');
       setLocalError('两次输入的密码不一致');
       return;
     }
 
     if (!passwordStrength.isValid) {
+      console.error('❌ [Frontend] 密码强度不够:', passwordStrength.errors);
       setLocalError('密码强度不够：' + passwordStrength.errors.join('、'));
       return;
     }
@@ -355,6 +367,8 @@ export default function AuthModal({
     setLocalError('');
     
     try {
+      console.log('📤 [Frontend] 发送验证码请求:', { email: formData.email });
+      
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -364,15 +378,23 @@ export default function AuthModal({
       });
       
       const data = await response.json();
+      console.log('📨 [Frontend] 验证码发送响应:', {
+        status: response.status,
+        success: data.success,
+        message: data.message,
+        data: data.data
+      });
       
       if (data.success) {
         setSuccessMessage('验证码已发送到你的邮箱');
         setIsCodeSent(true);
+        console.log('✅ [Frontend] 验证码发送成功');
       } else {
+        console.error('❌ [Frontend] 验证码发送失败:', data.message);
         setLocalError(data.message || '发送验证码失败');
       }
     } catch (error) {
-      console.error('发送验证码错误:', error);
+      console.error('❌ [Frontend] 发送验证码网络错误:', error);
       setLocalError('网络错误，请稍后重试');
     } finally {
       setIsLoading(false);

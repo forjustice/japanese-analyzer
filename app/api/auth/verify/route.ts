@@ -9,13 +9,28 @@ import bcrypt from 'bcryptjs';
 
 // 验证码验证API
 export async function POST(request: NextRequest) {
+  const requestId = Math.random().toString(36).substr(2, 9);
+  
   try {
+    console.log(`🚀 [Verify:${requestId}] 开始处理验证请求`);
+    
     const dbConnected = await initDatabase();
     if (!dbConnected) {
+      console.error(`❌ [Verify:${requestId}] 数据库连接失败`);
       return NextResponse.json(AuthUtils.formatErrorResponse('数据库连接失败'), { status: 500 });
     }
 
-    const { email, code, type = 'registration', password, username } = await request.json();
+    const requestBody = await request.json();
+    const { email, code, type = 'registration', password, username } = requestBody;
+    
+    console.log(`📨 [Verify:${requestId}] 请求参数:`, {
+      email,
+      code,
+      type,
+      hasPassword: !!password,
+      hasUsername: !!username,
+      rawBody: requestBody
+    });
 
     if (!email || !code) {
       return NextResponse.json(AuthUtils.formatErrorResponse('邮箱和验证码为必填项'), { status: 400 });
@@ -28,39 +43,46 @@ export async function POST(request: NextRequest) {
     }
 
     // 原子性验证验证码并标记为已使用（防止重复提交）
+    console.log(`🔐 [Verify:${requestId}] 开始验证码校验`);
     const verificationCode = await VerificationCodeModel.verifyAndMarkUsed(email.toLowerCase(), code, type);
     if (!verificationCode) {
-      console.log('验证码验证失败 - 邮箱:', email, '验证码:', code, '类型:', type);
+      console.error(`❌ [Verify:${requestId}] 验证码验证失败 - 邮箱:`, email, '验证码:', code, '类型:', type);
       return NextResponse.json(AuthUtils.formatErrorResponse('验证码无效、已过期或已使用'), { status: 400 });
     }
 
-    console.log('验证码验证通过，验证码ID:', verificationCode.id, '已自动标记为已使用');
+    console.log(`✅ [Verify:${requestId}] 验证码验证通过，验证码ID:`, verificationCode.id, '已自动标记为已使用');
 
     switch (type) {
       case 'registration':
-        console.log('开始注册验证流程，邮箱:', email);
+        console.log(`👤 [Verify:${requestId}] 开始注册验证流程，邮箱:`, email);
         
         // 1. 先进行所有前置验证（不涉及数据库修改）
         if (!password) {
+          console.error(`❌ [Verify:${requestId}] 密码为空`);
           return NextResponse.json(AuthUtils.formatErrorResponse('密码为必填项'), { status: 400 });
         }
         
         const passwordValidation = AuthUtils.validatePassword(password);
         if (!passwordValidation.isValid) {
+          console.error(`❌ [Verify:${requestId}] 密码验证失败:`, passwordValidation.errors);
           return NextResponse.json(AuthUtils.formatErrorResponse('密码不符合要求', { errors: passwordValidation.errors }), { status: 400 });
         }
 
         if (username && !AuthUtils.isValidUsername(username)) {
+          console.error(`❌ [Verify:${requestId}] 用户名格式不正确:`, username);
           return NextResponse.json(AuthUtils.formatErrorResponse('用户名格式不正确'), { status: 400 });
         }
 
         // 2. 检查邮箱是否已被注册
+        console.log(`📧 [Verify:${requestId}] 检查邮箱是否已注册:`, email);
         const existingUser = await UserModel.findByEmail(email.toLowerCase());
         if (existingUser && existingUser.is_verified) {
+          console.error(`❌ [Verify:${requestId}] 邮箱已被注册:`, { userId: existingUser.id, isVerified: existingUser.is_verified });
           return NextResponse.json(AuthUtils.formatErrorResponse('该邮箱已被注册'), { status: 409 });
         }
         
-        console.log('所有前置验证通过，开始数据库事务');
+        console.log(`✅ [Verify:${requestId}] 所有前置验证通过，现有用户状态:`, existingUser ? { id: existingUser.id, isVerified: existingUser.is_verified } : null);
+        console.log(`🔄 [Verify:${requestId}] 开始数据库事务`);
         
         // 3. 使用数据库事务确保原子性
         const connection = await db.beginTransaction();

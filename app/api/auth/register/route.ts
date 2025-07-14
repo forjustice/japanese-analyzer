@@ -55,11 +55,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('📤 [Register] 准备创建验证码:', { email: email.toLowerCase(), type: 'registration' });
     const { code } = await VerificationCodeModel.create({
       email: email.toLowerCase(),
       type: 'registration',
       user_id: existingUser ? existingUser.id : undefined // User may not exist yet
     });
+    console.log('✅ [Register] 验证码创建完成:', { code });
 
     const responseMessage = '验证码已发送到你的邮箱';
 

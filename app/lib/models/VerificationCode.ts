@@ -12,13 +12,18 @@ export class VerificationCodeModel {
     const { email, type, user_id } = input;
     const code = this.generateCode();
     
+    console.log('📝 [VerificationCode] 开始创建验证码:', { email, type, user_id, code });
+    
     // 设置过期时间：注册验证码15分钟，密码重置验证码30分钟
     const expirationMinutes = type === 'registration' ? 15 : 30;
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + expirationMinutes);
 
+    console.log('⏰ [VerificationCode] 验证码过期时间:', expiresAt.toISOString());
+
     // 先删除该邮箱的旧验证码（同类型）
-    await this.deleteByEmailAndType(email, type);
+    const deletedCount = await this.deleteByEmailAndType(email, type);
+    console.log('🗑️ [VerificationCode] 删除旧验证码数量:', deletedCount);
 
     const sql = `
       INSERT INTO verification_codes (user_id, email, code, type, expires_at)
@@ -26,6 +31,7 @@ export class VerificationCodeModel {
     `;
     
     const id = await db.insert(sql, [user_id || null, email, code, type, expiresAt]);
+    console.log('✅ [VerificationCode] 验证码创建成功:', { id, code, expiresAt });
     
     return { id, code };
   }
@@ -44,6 +50,21 @@ export class VerificationCodeModel {
 
   // 原子性验证并标记验证码为已使用（防止竞态条件）
   static async verifyAndMarkUsed(email: string, code: string, type: string): Promise<VerificationCode | null> {
+    console.log('🔍 [VerificationCode] 开始原子性验证:', { email, code, type });
+    
+    // 先查询当前状态用于调试
+    const debugSql = `
+      SELECT id, email, code, type, is_used, expires_at, created_at,
+             NOW() as \`current_time\`,
+             (expires_at > NOW()) as is_not_expired
+      FROM verification_codes 
+      WHERE email = ? AND type = ?
+      ORDER BY created_at DESC 
+      LIMIT 3
+    `;
+    const debugResult = await db.query(debugSql, [email, type]);
+    console.log('🔍 [VerificationCode] 当前邮箱的验证码状态:', debugResult);
+    
     const connection = await db.beginTransaction();
     
     try {
@@ -56,21 +77,35 @@ export class VerificationCodeModel {
         FOR UPDATE
       `;
       
-      const result = await connection.execute(sql, [email, code, type]);
-      const verificationCode = Array.isArray(result[0]) && result[0].length > 0 ? result[0][0] as VerificationCode : null;
+      console.log('🔍 [VerificationCode] 执行验证查询:', { email, code, type });
+      const [rows] = await connection.execute(sql, [email, code, type]);
+      const verificationCode = Array.isArray(rows) && rows.length > 0 ? rows[0] as VerificationCode : null;
       
       if (!verificationCode) {
+        console.log('❌ [VerificationCode] 验证码验证失败 - 未找到有效验证码');
+        console.log('🔍 [VerificationCode] 查询结果:', rows);
         await db.rollbackTransaction(connection);
         return null;
       }
       
+      console.log('✅ [VerificationCode] 找到有效验证码:', {
+        id: verificationCode.id,
+        email: verificationCode.email,
+        code: verificationCode.code,
+        expires_at: verificationCode.expires_at,
+        is_used: verificationCode.is_used
+      });
+      
       // 立即标记为已使用
-      await connection.execute('UPDATE verification_codes SET is_used = TRUE WHERE id = ?', [verificationCode.id]);
+      const [updateResult] = await connection.execute('UPDATE verification_codes SET is_used = TRUE WHERE id = ?', [verificationCode.id]);
+      console.log('✅ [VerificationCode] 验证码已标记为已使用:', verificationCode.id, 'affectedRows:', (updateResult as any).affectedRows);
       
       await db.commitTransaction(connection);
+      console.log('✅ [VerificationCode] 事务提交成功');
       return verificationCode;
       
     } catch (error) {
+      console.error('❌ [VerificationCode] 原子性验证失败:', error);
       await db.rollbackTransaction(connection);
       throw error;
     }
