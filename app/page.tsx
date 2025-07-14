@@ -196,7 +196,7 @@ export default function Home() {
         if (cleanedJson.startsWith('[') && cleanedJson.endsWith(']')) {
           try {
             finalTokens = JSON.parse(cleanedJson);
-          } catch (e) {
+           } catch {
             // 如果直接解析失败，尝试逐个提取对象
             const jsonObjects = [];
             const regex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
