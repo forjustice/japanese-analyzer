@@ -150,13 +150,18 @@ export default function Home() {
     let accumulatedJson = '';
     let chunkCount = 0;
     let lastValidTokens: TokenData[] = [];
+    let updateTimeout: NodeJS.Timeout | null = null;
     
     try {
       await analyzeSentence(text, (chunk) => {
         chunkCount++;
-        console.log(`Frontend chunk ${chunkCount} (${chunk.length} chars):`, chunk.substring(0, 50) + "...");
+        if (chunkCount <= 5 || chunkCount % 10 === 0) { // 减少日志输出
+          console.log(`Frontend chunk ${chunkCount} (${chunk.length} chars):`, chunk.substring(0, 50) + "...");
+        }
         accumulatedJson += chunk;
-        console.log(`Accumulated so far: ${accumulatedJson.length} characters`);
+        if (chunkCount <= 5 || chunkCount % 10 === 0) {
+          console.log(`Accumulated so far: ${accumulatedJson.length} characters`);
+        }
         
         // 尝试实时解析并显示部分结果
         try {
@@ -166,9 +171,9 @@ export default function Home() {
           
           // 如果看起来像数组开始，尝试解析
           if (partialJson.startsWith('[')) {
-            // 尝试提取所有完整的JSON对象
-            const regex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
-            const matches = partialJson.match(regex);
+            // 更精确的JSON对象提取正则表达式
+            const jsonObjectRegex = /\{\s*"word"\s*:\s*"[^"]*"\s*,\s*"pos"\s*:\s*"[^"]*"\s*,\s*"furigana"\s*:\s*"[^"]*"\s*,\s*"romaji"\s*:\s*"[^"]*"\s*\}/g;
+            const matches = partialJson.match(jsonObjectRegex);
             if (matches && matches.length > 0) {
               const tokens: TokenData[] = [];
               for (const match of matches) {
@@ -177,16 +182,27 @@ export default function Home() {
                   if (token.word !== undefined && token.word !== "END_OF_ANALYSIS") {
                     tokens.push(token);
                   }
-                } catch {
-                  // 忽略解析失败的对象
+                } catch (parseError) {
+                  console.warn('Failed to parse streaming token:', match, parseError);
                 }
               }
               
-              // 只有当我们有新的token时才更新显示
+              // 只有当我们有新的token时才更新显示，使用去抖动
               if (tokens.length > lastValidTokens.length) {
-                lastValidTokens = tokens;
-                setAnalyzedTokens(tokens);
-                console.log(`Streaming display updated: ${tokens.length} tokens`);
+                lastValidTokens = [...tokens]; // 创建副本避免引用问题
+                
+                // 清除之前的更新定时器
+                if (updateTimeout) {
+                  clearTimeout(updateTimeout);
+                }
+                
+                // 延迟更新以减少频繁的DOM操作
+                updateTimeout = setTimeout(() => {
+                  setAnalyzedTokens([...tokens]);
+                  if (chunkCount <= 10 || tokens.length % 20 === 0) { // 减少日志输出
+                    console.log(`Streaming display updated: ${tokens.length} tokens`);
+                  }
+                }, 100); // 100ms去抖动
               }
             }
           }
@@ -295,16 +311,17 @@ export default function Home() {
         } else {
           // 如果不是完整的数组格式，尝试提取所有对象
           const jsonObjects = [];
-          const regex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+          // 使用更精确的正则表达式匹配完整的JSON对象
+          const regex = /\{\s*"word"\s*:\s*"[^"]*"\s*,\s*"pos"\s*:\s*"[^"]*"\s*,\s*"furigana"\s*:\s*"[^"]*"\s*,\s*"romaji"\s*:\s*"[^"]*"\s*\}/g;
           let match;
           while ((match = regex.exec(cleanedJson)) !== null) {
             try {
               const obj = JSON.parse(match[0]);
-              if (obj.word !== undefined) {
+              if (obj.word !== undefined && obj.word !== "END_OF_ANALYSIS") {
                 jsonObjects.push(obj);
               }
-            } catch {
-              console.warn('Failed to parse individual JSON object:', match[0]);
+            } catch (parseError) {
+              console.warn('Failed to parse individual JSON object:', match[0], parseError);
             }
           }
           
@@ -312,16 +329,28 @@ export default function Home() {
             finalTokens = jsonObjects;
             console.log("Extracted", jsonObjects.length, "valid tokens without array format");
             
-            // 检查是否有结束标记
-            const hasEndMarker = finalTokens.some((token: TokenData) => token.word === "END_OF_ANALYSIS");
-            if (hasEndMarker) {
-              console.log("✅ Found END_OF_ANALYSIS marker - parsing is complete");
-              finalTokens = finalTokens.filter((token: TokenData) => token.word !== "END_OF_ANALYSIS");
-            } else {
-              console.warn("⚠️ No END_OF_ANALYSIS marker found - parsing may be incomplete");
-            }
+            // 检查是否有结束标记 (已经在上面过滤掉了)
+            console.log("✅ Extracted valid tokens from incomplete JSON");
           } else {
-            throw new Error("无法从AI响应中提取有效的JSON数据");
+            // 如果精确匹配失败，回退到宽松匹配
+            const fallbackRegex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+            while ((match = fallbackRegex.exec(cleanedJson)) !== null) {
+              try {
+                const obj = JSON.parse(match[0]);
+                if (obj.word !== undefined && obj.word !== "END_OF_ANALYSIS") {
+                  jsonObjects.push(obj);
+                }
+              } catch {
+                // 忽略无法解析的对象
+              }
+            }
+            
+            if (jsonObjects.length > 0) {
+              finalTokens = jsonObjects;
+              console.log("Fallback extracted", jsonObjects.length, "valid tokens");
+            } else {
+              throw new Error("无法从AI响应中提取有效的JSON数据");
+            }
           }
         }
       } catch (parseError) {
@@ -337,6 +366,10 @@ export default function Home() {
       setAnalysisError(error instanceof Error ? error.message : '未知错误');
       setAnalyzedTokens([]);
     } finally {
+      // 清理定时器
+      if (updateTimeout) {
+        clearTimeout(updateTimeout);
+      }
       setIsAnalyzing(false);
     }
   };
