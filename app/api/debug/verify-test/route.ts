@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const createResult = await VerificationCodeModel.create({
       email,
       type,
-      user_id: null
+      user_id: undefined
     });
     
     console.log('🧪 [VerifyTest] 创建验证码结果:', createResult);
@@ -53,6 +53,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('验证码测试失败:', error);
-    return NextResponse.json({ error: '测试失败', details: error.message }, { status: 500 });
+    return NextResponse.json({ 
+      error: '测试失败', 
+      details: error instanceof Error ? error.message : String(error) 
+    }, { status: 500 });
   }
 }

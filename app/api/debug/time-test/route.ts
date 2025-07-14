@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { initDatabase, db } from '../../../lib/database';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const dbConnected = await initDatabase();
     if (!dbConnected) {
@@ -23,7 +23,15 @@ export async function GET(request: NextRequest) {
         (? > UTC_TIMESTAMP()) as js_vs_mysql_utc
     `;
     
-    const timeTest = await db.queryOne(testSql, [
+    const timeTest = await db.queryOne<{
+      js_now: string;
+      js_expires: string;
+      mysql_now: string;
+      mysql_utc: string;
+      js_time_valid: number;
+      js_vs_mysql_now: number;
+      js_vs_mysql_utc: number;
+    }>(testSql, [
       jsNow, 
       jsExpires, 
       jsExpires, 
@@ -56,7 +64,14 @@ export async function GET(request: NextRequest) {
       WHERE id = ?
     `;
     
-    const verifyResult = await db.queryOne(verifySql, [jsNow, jsNow, insertId]);
+    const verifyResult = await db.queryOne<{
+      id: number;
+      email: string;
+      code: string;
+      expires_at: string;
+      js_current_time: string;
+      is_valid_js_time: number;
+    }>(verifySql, [jsNow, jsNow, insertId]);
     
     // 清理测试数据
     await db.delete('DELETE FROM verification_codes WHERE id = ?', [insertId]);
@@ -70,6 +85,9 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('时间测试失败:', error);
-    return NextResponse.json({ error: '测试失败', details: error.message }, { status: 500 });
+    return NextResponse.json({ 
+      error: '测试失败', 
+      details: error instanceof Error ? error.message : String(error) 
+    }, { status: 500 });
   }
 }

@@ -33,7 +33,17 @@ export async function POST(request: NextRequest) {
       LIMIT 1
     `;
     
-    const result = await db.queryOne(sql, [jsNow, jsNow, email, code, type]);
+    const result = await db.queryOne<{
+      id: number;
+      email: string;
+      code: string;
+      type: string;
+      is_used: boolean;
+      expires_at: string;
+      created_at: string;
+      js_current_time: string;
+      is_valid_js_time: number;
+    }>(sql, [jsNow, jsNow, email, code, type]);
     
     console.log('🔍 [DirectVerify] 查询结果:', result);
     
@@ -58,6 +68,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('直接验证失败:', error);
-    return NextResponse.json({ error: '验证失败', details: error.message }, { status: 500 });
+    return NextResponse.json({ 
+      error: '验证失败', 
+      details: error instanceof Error ? error.message : String(error) 
+    }, { status: 500 });
   }
 }

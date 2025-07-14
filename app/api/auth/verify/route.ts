@@ -44,6 +44,11 @@ export async function POST(request: NextRequest) {
 
     // 原子性验证验证码并标记为已使用（防止重复提交）
     console.log(`🔐 [Verify:${requestId}] 开始验证码校验`);
+    
+    // 先尝试使用简化的验证逻辑
+    const jsNow = new Date();
+    console.log(`🔐 [Verify:${requestId}] 使用JavaScript时间验证:`, jsNow.toISOString());
+    
     const verificationCode = await VerificationCodeModel.verifyAndMarkUsed(email.toLowerCase(), code, type);
     if (!verificationCode) {
       console.error(`❌ [Verify:${requestId}] 验证码验证失败 - 邮箱:`, email, '验证码:', code, '类型:', type);
