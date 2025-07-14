@@ -57,7 +57,8 @@ export class VerificationCodeModel {
     const debugSql = `
       SELECT id, email, code, type, is_used, expires_at, created_at,
              NOW() as \`current_time\`,
-             (expires_at > NOW()) as is_not_expired
+             (expires_at > NOW()) as is_not_expired,
+             TIMESTAMPDIFF(MINUTE, NOW(), expires_at) as minutes_until_expiry
       FROM verification_codes 
       WHERE email = ? AND type = ?
       ORDER BY created_at DESC 
@@ -65,6 +66,18 @@ export class VerificationCodeModel {
     `;
     const debugResult = await db.query(debugSql, [email, type]);
     console.log('🔍 [VerificationCode] 当前邮箱的验证码状态:', debugResult);
+    
+    // 如果是Vercel环境，添加更多调试信息
+    if (process.env.VERCEL_ENV) {
+      console.log('🌐 [VerificationCode] Vercel环境调试信息:', {
+        vercelEnv: process.env.VERCEL_ENV,
+        vercelRegion: process.env.VERCEL_REGION,
+        timezone: process.env.TZ,
+        nodeEnv: process.env.NODE_ENV,
+        currentTime: new Date().toISOString(),
+        timezoneOffset: new Date().getTimezoneOffset()
+      });
+    }
     
     const connection = await db.beginTransaction();
     

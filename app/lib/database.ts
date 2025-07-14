@@ -8,11 +8,17 @@ const dbConfig = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'japanese_analyzer',
   charset: 'utf8mb4',
-  // 连接池配置
-  connectionLimit: 10,
-  acquireTimeout: 60000,
-  timeout: 60000,
-  reconnect: true
+  // 连接池配置 - 针对Vercel无服务器环境优化
+  connectionLimit: process.env.VERCEL_ENV ? 5 : 10,
+  acquireTimeout: process.env.VERCEL_ENV ? 30000 : 60000,
+  timeout: process.env.VERCEL_ENV ? 30000 : 60000,
+  reconnect: true,
+  // 添加SSL配置（如果需要）
+  ssl: process.env.DB_SSL === 'true' ? {
+    rejectUnauthorized: false
+  } : undefined,
+  // 时区配置
+  timezone: '+00:00'
 };
 
 // 创建连接池
