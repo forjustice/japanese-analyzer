@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ApiClient } from '../../utils/api-client';
 import { tokenUsageService } from '../../lib/services/tokenUsageService';
 import { authMiddleware } from '../../lib/utils/auth';
+import { createTokenLimitMiddleware } from '../../lib/middleware/tokenLimitMiddleware';
 import pdfParse from 'pdf-parse-new';
 import mammoth from 'mammoth';
 
@@ -69,6 +70,12 @@ export const config = {
 
 export async function POST(req: NextRequest) {
   try {
+    // 首先检查TOKEN使用量限制
+    const tokenLimitCheck = createTokenLimitMiddleware(false);
+    const limitResult = await tokenLimitCheck(req);
+    if (limitResult) {
+      return limitResult; // 如果超出限制，直接返回错误响应
+    }
     // 解析multipart/form-data
     const formData = await req.formData();
     const file = formData.get('file') as File;

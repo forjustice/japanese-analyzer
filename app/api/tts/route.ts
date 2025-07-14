@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ApiClient } from '../../utils/api-client';
 import { tokenUsageService } from '../../lib/services/tokenUsageService';
 import { authMiddleware } from '../../lib/utils/auth';
+import { createTokenLimitMiddleware } from '../../lib/middleware/tokenLimitMiddleware';
 
 const API_KEY = process.env.API_KEY || '';
 const TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent';
@@ -12,6 +13,13 @@ const apiClient = new ApiClient(API_KEY);
 
 export async function POST(req: NextRequest) {
   try {
+    // 首先检查TOKEN使用量限制
+    const tokenLimitCheck = createTokenLimitMiddleware(false);
+    const limitResult = await tokenLimitCheck(req);
+    if (limitResult) {
+      return limitResult; // 如果超出限制，直接返回错误响应
+    }
+
     const { text, voice = 'Kore', model = MODEL_NAME } = await req.json();
 
     // 从请求头中获取用户认证token（不再支持用户自定义API密钥）

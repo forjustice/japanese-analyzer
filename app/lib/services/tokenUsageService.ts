@@ -38,8 +38,8 @@ class TokenUsageService {
       charset: 'utf8mb4'
     });
 
-    // 自动更新数据库结构（暂时禁用以避免影响解析功能）
-    // this.initializeMonthlyStats();
+    // 自动更新数据库结构
+    this.initializeMonthlyStats();
   }
 
   /**

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ApiClient } from '../../utils/api-client';
 import { tokenUsageService } from '../../lib/services/tokenUsageService';
 import { authMiddleware } from '../../lib/utils/auth';
+import { createTokenLimitMiddleware } from '../../lib/middleware/tokenLimitMiddleware';
 
 // API密钥从环境变量获取，支持逗号分隔的多个密钥
 const API_KEY = process.env.API_KEY || '';
@@ -21,6 +22,13 @@ export const config = {
 
 export async function POST(req: NextRequest) {
   try {
+    // 首先检查TOKEN使用量限制
+    const tokenLimitCheck = createTokenLimitMiddleware(false);
+    const limitResult = await tokenLimitCheck(req);
+    if (limitResult) {
+      return limitResult; // 如果超出限制，直接返回错误响应
+    }
+
     // 获取请求内容
     const requestBody = await req.text();
     let parsedBody;
