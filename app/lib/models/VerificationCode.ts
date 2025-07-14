@@ -1,5 +1,6 @@
 import { db } from '../database';
 import { VerificationCode, CreateVerificationCodeInput } from '../types/user';
+import mysql from 'mysql2/promise';
 
 export class VerificationCodeModel {
   // 生成6位数字验证码
@@ -98,7 +99,7 @@ export class VerificationCodeModel {
       
       // 立即标记为已使用
       const [updateResult] = await connection.execute('UPDATE verification_codes SET is_used = TRUE WHERE id = ?', [verificationCode.id]);
-      console.log('✅ [VerificationCode] 验证码已标记为已使用:', verificationCode.id, 'affectedRows:', (updateResult as any).affectedRows);
+      console.log('✅ [VerificationCode] 验证码已标记为已使用:', verificationCode.id, 'affectedRows:', (updateResult as mysql.ResultSetHeader).affectedRows);
       
       await db.commitTransaction(connection);
       console.log('✅ [VerificationCode] 事务提交成功');

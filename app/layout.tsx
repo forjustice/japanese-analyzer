@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -10,9 +10,16 @@ const inter = Inter({
   display: 'swap',
 });
 
+// 使用Noto Sans JP字体
+const notoSansJP = Noto_Sans_JP({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: "日本語文章解析器 - AI驱动",
-  description: "AI驱动・深入理解日语句���结构与词义",
+  description: "AI驱动・深入理解日语句法结构与词义",
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
     { media: '(prefers-color-scheme: dark)', color: '#1f2937' }
@@ -34,14 +41,6 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         
-        {/* 预连接谷歌字体CDN以提高加载速度 */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* 使用CDN直接加���Noto Sans JP字体，避免Vercel构建问题 */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap"
-          rel="stylesheet"
-        />
         {/* 主题初始化脚本 - 防止闪烁 */}
         <script dangerouslySetInnerHTML={{ __html: `
           (function() {
@@ -83,7 +82,7 @@ export default function RootLayout({
           })();
         `}} />
       </head>
-      <body className={`${inter.className} antialiased bg-gray-50 dark:bg-gray-900 transition-colors duration-200`}>
+      <body className={`${inter.className} ${notoSansJP.className} antialiased bg-gray-50 dark:bg-gray-900 transition-colors duration-200`}>
         <ThemeProvider>
           {children}
         </ThemeProvider>
