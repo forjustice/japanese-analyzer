@@ -17,7 +17,9 @@ const dbConfig = {
     }
   } : {}),
   // 时区配置
-  timezone: '+00:00'
+  timezone: '+00:00',
+  // 连接超时配置（使用正确的选项名）
+  connectTimeout: process.env.VERCEL_ENV ? 30000 : 60000
 };
 
 // 创建连接池
