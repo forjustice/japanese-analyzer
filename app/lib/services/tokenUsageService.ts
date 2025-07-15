@@ -84,13 +84,43 @@ class TokenUsageService {
   }
 
   /**
-   * 获取用户30天内的TOKEN使用统计
+   * 获取用户当前月度周期内的TOKEN使用统计（基于注册日期）
    */
   async getUserTokenStats(userId: number): Promise<UserTokenStats | null> {
     try {
       const connection = await this.pool.getConnection();
       try {
-        // 获取当月TOKEN使用统计
+        // 获取用户注册信息
+        const [userRows] = await connection.execute(
+          `SELECT created_at FROM users WHERE id = ?`,
+          [userId]
+        );
+
+        const userRow = Array.isArray(userRows) && userRows.length > 0 ? userRows[0] as { created_at: Date } : null;
+        if (!userRow) {
+          return null;
+        }
+
+        // 计算基于注册日期的当前月度周期
+        const registrationDate = new Date(userRow.created_at);
+        const registrationDay = registrationDate.getDate();
+        const now = new Date();
+        
+        // 计算当前月度周期的开始和结束日期
+        let cycleStart: Date;
+        let cycleEnd: Date;
+        
+        if (now.getDate() >= registrationDay) {
+          // 当前月份内的周期
+          cycleStart = new Date(now.getFullYear(), now.getMonth(), registrationDay);
+          cycleEnd = new Date(now.getFullYear(), now.getMonth() + 1, registrationDay);
+        } else {
+          // 跨月的周期（上个月开始）
+          cycleStart = new Date(now.getFullYear(), now.getMonth() - 1, registrationDay);
+          cycleEnd = new Date(now.getFullYear(), now.getMonth(), registrationDay);
+        }
+
+        // 获取当前月度周期内的TOKEN使用统计
         const [rows] = await connection.execute(
           `SELECT 
              SUM(CASE WHEN api_endpoint = 'analyze' THEN input_tokens + output_tokens ELSE 0 END) as analyze_tokens,
@@ -101,15 +131,9 @@ class TokenUsageService {
              COUNT(*) as total_requests
            FROM user_token_usage 
            WHERE user_id = ? 
-             AND request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') 
-             AND request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH)`,
-          [userId]
-        );
-
-        // 获取用户注册信息
-        const [userRows] = await connection.execute(
-          `SELECT created_at FROM users WHERE id = ?`,
-          [userId]
+             AND request_time >= ? 
+             AND request_time < ?`,
+          [userId, cycleStart.toISOString().slice(0, 19).replace('T', ' '), cycleEnd.toISOString().slice(0, 19).replace('T', ' ')]
         );
 
         if (Array.isArray(rows) && rows.length > 0) {
@@ -122,12 +146,8 @@ class TokenUsageService {
             total_requests?: number;
           };
 
-          const userRow = Array.isArray(userRows) && userRows.length > 0 ? userRows[0] as { created_at: Date } : null;
-
-          // 计算当月剩余天数
-          const now = new Date();
-          const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-          const daysRemainingInMonth = Math.max(0, currentMonthEnd.getDate() - now.getDate());
+          // 计算月度周期剩余天数
+          const daysRemainingInMonth = Math.max(0, Math.ceil((cycleEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
 
           // 获取月度限制
           const monthlyLimit = parseInt(process.env.MONTHLY_TOKEN_LIMIT || '150000');
@@ -140,8 +160,8 @@ class TokenUsageService {
             ocrTokens: row.ocr_tokens || 0,
             totalRequestsCurrentMonth: row.total_requests || 0,
             daysRemainingInMonth,
-            currentMonthEnd: currentMonthEnd.toISOString(),
-            registrationDate: userRow?.created_at ? new Date(userRow.created_at).toISOString() : '',
+            currentMonthEnd: cycleEnd.toISOString(),
+            registrationDate: registrationDate.toISOString(),
             monthlyLimit
           };
         }
@@ -156,7 +176,7 @@ class TokenUsageService {
   }
 
   /**
-   * 获取用户每日TOKEN使用量（当月）
+   * 获取用户每日TOKEN使用量（当前月度周期内）
    */
   async getUserDailyStats(userId: number): Promise<Array<{
     usage_date: string;
@@ -167,6 +187,36 @@ class TokenUsageService {
     try {
       const connection = await this.pool.getConnection();
       try {
+        // 获取用户注册信息
+        const [userRows] = await connection.execute(
+          `SELECT created_at FROM users WHERE id = ?`,
+          [userId]
+        );
+
+        const userRow = Array.isArray(userRows) && userRows.length > 0 ? userRows[0] as { created_at: Date } : null;
+        if (!userRow) {
+          return [];
+        }
+
+        // 计算基于注册日期的当前月度周期
+        const registrationDate = new Date(userRow.created_at);
+        const registrationDay = registrationDate.getDate();
+        const now = new Date();
+        
+        // 计算当前月度周期的开始和结束日期
+        let cycleStart: Date;
+        let cycleEnd: Date;
+        
+        if (now.getDate() >= registrationDay) {
+          // 当前月份内的周期
+          cycleStart = new Date(now.getFullYear(), now.getMonth(), registrationDay);
+          cycleEnd = new Date(now.getFullYear(), now.getMonth() + 1, registrationDay);
+        } else {
+          // 跨月的周期（上个月开始）
+          cycleStart = new Date(now.getFullYear(), now.getMonth() - 1, registrationDay);
+          cycleEnd = new Date(now.getFullYear(), now.getMonth(), registrationDay);
+        }
+
         const [rows] = await connection.execute(
           `SELECT 
              DATE(request_time) as usage_date,
@@ -175,11 +225,11 @@ class TokenUsageService {
              COUNT(*) as request_count
            FROM user_token_usage 
            WHERE user_id = ? 
-             AND request_time >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') 
-             AND request_time < DATE_ADD(DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+             AND request_time >= ? 
+             AND request_time < ?
            GROUP BY DATE(request_time), api_endpoint
            ORDER BY usage_date DESC, api_endpoint`,
-          [userId]
+          [userId, cycleStart.toISOString().slice(0, 19).replace('T', ' '), cycleEnd.toISOString().slice(0, 19).replace('T', ' ')]
         );
         return rows as Array<{
           usage_date: string;

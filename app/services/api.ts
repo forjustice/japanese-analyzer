@@ -77,7 +77,8 @@ export async function analyzeSentence(
 
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(`解析失败：${errorData.error?.message || response.statusText || '未知错误'}`);
+    const errorMessage = errorData.message || errorData.error?.message || errorData.error || response.statusText || '未知错误';
+    throw new Error(`解析失败：${errorMessage}`);
   }
 
   if (!response.body) {
@@ -173,7 +174,8 @@ export async function getWordDetails(
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`查询释义失败：${errorData.error?.message || response.statusText || '未知错误'}`);
+      const errorMessage = errorData.message || errorData.error?.message || errorData.error || response.statusText || '未知错误';
+      throw new Error(`查询释义失败：${errorMessage}`);
     }
 
     const result = await response.json();
@@ -220,7 +222,8 @@ export async function translateText(
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`翻译失败：${errorData.error?.message || response.statusText || '未知错误'}`);
+      const errorMessage = errorData.message || errorData.error?.message || errorData.error || response.statusText || '未知错误';
+      throw new Error(`翻译失败：${errorMessage}`);
     }
 
     const result = await response.json();
@@ -259,7 +262,8 @@ export async function extractTextFromImage(
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`图片文字提取失败：${errorData.error?.message || response.statusText || '未知错误'}`);
+      const errorMessage = errorData.message || errorData.error?.message || errorData.error || response.statusText || '未知错误';
+      throw new Error(`图片文字提取失败：${errorMessage}`);
     }
 
     const result = await response.json();
@@ -304,7 +308,8 @@ export async function extractTextFromFile(
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`文件文字提取失败：${errorData.error?.message || response.statusText || '未知错误'}`);
+      const errorMessage = errorData.message || errorData.error?.message || errorData.error || response.statusText || '未知错误';
+      throw new Error(`文件文字提取失败：${errorMessage}`);
     }
 
     const result = await response.json();
