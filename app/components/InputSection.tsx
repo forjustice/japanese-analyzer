@@ -1,0 +1,590 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { extractTextFromImage, extractTextFromFile } from '../services/api';
+import { getJapaneseTtsAudioUrl, speakJapanese } from '../utils/helpers';
+import { FaCamera, FaVolumeUp, FaChevronDown, FaDesktop, FaRobot, FaInfoCircle, FaFile } from 'react-icons/fa';
+
+// 添加内联样式
+const placeholderStyle = `
+  #japaneseInput::placeholder {
+    color: rgba(0, 0, 0, 0.4) !important;
+    opacity: 0.6 !important;
+  }
+`;
+
+interface InputSectionProps {
+  onAnalyze: (text: string) => void;
+  ttsProvider: 'system' | 'gemini';
+  onTtsProviderChange: (provider: 'system' | 'gemini') => void;
+}
+
+// TTS配置选项
+const TTS_VOICES = [
+  { value: 'Kore', label: 'Kore (坚定)', style: 'Firm' },
+  { value: 'Puck', label: 'Puck (乐观)', style: 'Upbeat' },
+  { value: 'Zephyr', label: 'Zephyr (明亮)', style: 'Bright' },
+  { value: 'Aoede', label: 'Aoede (轻松)', style: 'Breezy' },
+  { value: 'Leda', label: 'Leda (年轻)', style: 'Youthful' },
+  { value: 'Charon', label: 'Charon (信息性)', style: 'Informative' }
+];
+
+const TTS_STYLES = [
+  { value: '', label: '自然朗读', prompt: '' },
+  { value: 'cheerfully', label: '愉快地说', prompt: 'Say cheerfully: ' },
+  { value: 'calmly', label: '平静地说', prompt: 'Say calmly: ' },
+  { value: 'slowly', label: '慢速朗读', prompt: 'Say slowly: ' },
+  { value: 'clearly', label: '清晰朗读', prompt: 'Say clearly: ' },
+  { value: 'gently', label: '温和地说', prompt: 'Say gently: ' }
+];
+
+export default function InputSection({ 
+  onAnalyze,
+  ttsProvider,
+  onTtsProviderChange
+}: InputSectionProps) {
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [uploadStatusClass, setUploadStatusClass] = useState('');
+  const [isFileUploading, setIsFileUploading] = useState(false);
+  const [showTtsDropdown, setShowTtsDropdown] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState('Kore');
+  const [selectedStyle, setSelectedStyle] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 从本地存储加载TTS设置
+  useEffect(() => {
+    const storedVoice = localStorage.getItem('ttsVoice') || 'Kore';
+    const storedStyle = localStorage.getItem('ttsStyle') || '';
+    setSelectedVoice(storedVoice);
+    setSelectedStyle(storedStyle);
+  }, []);
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowTtsDropdown(false);
+      }
+    };
+
+    if (showTtsDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showTtsDropdown]);
+
+  const handleAnalyze = () => {
+    if (!inputText.trim()) {
+      alert('请输入日语句子！');
+      return;
+    }
+
+    setIsLoading(true);
+    onAnalyze(inputText);
+    setTimeout(() => setIsLoading(false), 300); // 简化示例，实际应在分析完成后设置
+  };
+
+  const handleSpeak = async () => {
+    if (!inputText.trim()) return;
+    setIsSpeaking(true);
+    
+    try {
+      if (ttsProvider === 'gemini') {
+        // 使用 Gemini TTS，添加风格控制
+        const stylePrompt = TTS_STYLES.find(s => s.value === selectedStyle)?.prompt || '';
+        const textToSpeak = stylePrompt + inputText;
+        const url = await getJapaneseTtsAudioUrl(textToSpeak);
+        setTtsAudioUrl(url);
+      } else {
+        // 使用系统 TTS
+        setTtsAudioUrl(null);
+        speakJapanese(inputText);
+      }
+    } catch (e) {
+      console.error('TTS error:', e);
+      setTtsAudioUrl(null);
+      // 如果 Gemini TTS 失败，回退到系统 TTS
+      speakJapanese(inputText);
+    } finally {
+      setIsSpeaking(false);
+    }
+  };
+
+  const handleTtsProviderSelect = (provider: 'system' | 'gemini') => {
+    onTtsProviderChange(provider);
+    setShowTtsDropdown(false);
+  };
+
+  const handleVoiceChange = (voice: string) => {
+    setSelectedVoice(voice);
+    localStorage.setItem('ttsVoice', voice);
+  };
+
+  const handleStyleChange = (style: string) => {
+    setSelectedStyle(style);
+    localStorage.setItem('ttsStyle', style);
+  };
+
+  // 根据文本长度估算合成时间
+  const getEstimatedTime = (text: string): string => {
+    const length = text.length;
+    if (length <= 20) return '5-10秒';
+    if (length <= 50) return '10-20秒';
+    if (length <= 100) return '20-30秒';
+    return '30-60秒';
+  };
+
+  // 处理文档文件的通用函数
+  const processDocumentFile = async (file: File) => {
+    const fileName = file.name.toLowerCase();
+    const fileType = file.type;
+    
+    console.log('文件信息:', { 
+      name: file.name, 
+      type: file.type, 
+      size: file.size,
+      lastModified: file.lastModified 
+    });
+    
+    // 检查文件类型 - 扩展支持更多MIME类型
+    const isValidType = 
+      fileType === 'application/pdf' || 
+      fileName.endsWith('.pdf') ||
+      fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      fileName.endsWith('.docx') ||
+      // 有些系统可能不正确识别docx的MIME类型
+      fileType === 'application/zip' && fileName.endsWith('.docx') ||
+      fileType === '' && fileName.endsWith('.docx'); // 某些情况下MIME类型为空
+    
+    if (!isValidType) {
+      setUploadStatus(`不支持的文件格式。文件类型: ${fileType}，文件名: ${fileName}`);
+      setUploadStatusClass('mt-2 text-sm text-red-600 dark:text-red-400');
+      return;
+    }
+
+    setIsFileUploading(true);
+    setUploadStatus('正在解析文档并提取日语文字...');
+    setUploadStatusClass('mt-2 text-sm text-gray-600 dark:text-gray-400');
+
+    try {
+      // 极简提示词，避免AI过度处理
+      const documentExtractionPrompt = `请直接输出以下文档中的所有内容，保持原有格式。`;
+      
+      // 直接返回原始文本，绕过AI处理
+      const shouldReturnRawText = true;
+      const finalPrompt = shouldReturnRawText ? 'RETURN_RAW_TEXT' : documentExtractionPrompt;
+      
+      // 文件上传总是使用直接处理，不使用流式响应
+      console.log('开始非流式API调用，prompt:', finalPrompt);
+      const extractedText = await extractTextFromFile(file);
+      console.log('非流式API返回的文本长度:', extractedText.length);
+      console.log('非流式API返回的文本内容:', extractedText.substring(0, 200));
+      
+      setInputText(extractedText);
+      
+      if (extractedText.includes('未找到日文内容')) {
+        setUploadStatus('文档中未找到日文内容。');
+        setUploadStatusClass('mt-2 text-sm text-yellow-600 dark:text-yellow-400');
+      } else {
+        setUploadStatus('文档解析成功！请确认后点击"解析句子"。');
+        setUploadStatusClass('mt-2 text-sm text-green-600 dark:text-green-400');
+      }
+      setIsFileUploading(false);
+    } catch (error) {
+      console.error('Error during document text extraction:', error);
+      setUploadStatus(`解析时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`);
+      setUploadStatusClass('mt-2 text-sm text-red-600 dark:text-red-400');
+      setIsFileUploading(false);
+    }
+  };
+
+  // 处理图片识别的通用函数
+  const processImageFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setUploadStatus('请上传图片文件！');
+      setUploadStatusClass('mt-2 text-sm text-red-600 dark:text-red-400');
+      return;
+    }
+
+    setIsImageUploading(true);
+    setUploadStatus('正在上传并识别图片中的文字...');
+    setUploadStatusClass('mt-2 text-sm text-gray-600 dark:text-gray-400');
+
+    try {
+      // 图片上传总是使用直接处理，不使用流式响应
+      const extractedText = await extractTextFromImage(file);
+      setInputText(extractedText); 
+      setUploadStatus('文字提取成功！请确认后点击"解析句子"。');
+      setUploadStatusClass('mt-2 text-sm text-green-600 dark:text-green-400');
+      setIsImageUploading(false);
+    } catch (error) {
+      console.error('Error during image text extraction:', error);
+      setUploadStatus(`提取时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`);
+      setUploadStatusClass('mt-2 text-sm text-red-600 dark:text-red-400');
+      setIsImageUploading(false);
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    await processImageFile(file);
+    
+    // 清理file input
+    event.target.value = '';
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    // 根据文件类型决定处理方式
+    if (file.type.startsWith('image/')) {
+      await processImageFile(file);
+    } else {
+      await processDocumentFile(file);
+    }
+    
+    // 清理file input
+    event.target.value = '';
+  };
+
+  // 处理粘贴事件
+  const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    // 检查粘贴的内容中是否有图片
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        // 阻止默认粘贴行为
+        event.preventDefault();
+        
+        const file = item.getAsFile();
+        if (file) {
+          setUploadStatus('检测到粘贴的图片，正在识别...');
+          setUploadStatusClass('mt-2 text-sm text-blue-600 dark:text-blue-400');
+          await processImageFile(file);
+        }
+        break;
+      }
+    }
+  };
+
+  // 图片压缩函数（已停用）
+  /*
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // 创建canvas进行图片压缩
+          const canvas = document.createElement('canvas');
+          // 确定压缩后尺寸（保持宽高比）
+          let width = img.width;
+          let height = img.height;
+          
+          // 如果图片尺寸大于1600px，按比例缩小
+          const maxDimension = 1600;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // 在canvas上绘制压缩后的图片
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('无法创建canvas上下文'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // 转换为dataURL，使用较低的质量
+          const quality = 0.7; // 70%的质量，可以根据需要调整
+          const dataUrl = canvas.toDataURL(file.type, quality);
+          resolve(dataUrl);
+        };
+        img.onerror = () => reject(new Error('图片加载失败'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('无法读取文件'));
+      reader.readAsDataURL(file);
+    });
+  };
+  */
+
+  return (
+    <div className="premium-card">
+      <style dangerouslySetInnerHTML={{ __html: placeholderStyle }} />
+      <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-3 sm:mb-4">输入日语句子</h2>
+      <div className="relative">
+        <textarea 
+          id="japaneseInput" 
+          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#007AFF] focus:border-[#007AFF] transition duration-150 ease-in-out resize-none japanese-text" 
+          rows={4} 
+          placeholder="例：今日はいい天気ですね。或上传图片/PDF/Word文档提取文字，也可直接粘贴图片。"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          onPaste={handlePaste}
+          style={{ 
+            fontSize: '16px', // 防止移动设备缩放
+            WebkitTextFillColor: 'black', // Safari特定修复
+            color: 'black',
+            fontFamily: "'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif"
+          }}
+          autoCapitalize="none"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck="false"
+        ></textarea>
+        {inputText.trim() !== '' && (
+          <button 
+            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 focus:outline-none"
+            onClick={() => setInputText('')}
+            title="清空内容"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
+      </div>
+      
+      <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+        <input 
+          type="file" 
+          id="imageUploadInput" 
+          accept="image/*" 
+          className="hidden" 
+          onChange={handleImageUpload}
+        />
+        <input 
+          type="file" 
+          id="fileUploadInput" 
+          accept=".pdf,.docx,image/*" 
+          className="hidden" 
+          onChange={handleFileUpload}
+        />
+        <div className="flex gap-2 w-full sm:w-auto mb-2 sm:mb-0 sm:order-1">
+          <button
+            id="uploadImageButton"
+            className="premium-button premium-button-secondary flex-1 sm:w-auto text-sm sm:text-base py-2 sm:py-3"
+            onClick={() => document.getElementById('imageUploadInput')?.click()}
+            disabled={isImageUploading || isFileUploading}
+            title="上传图片提取文字"
+          >
+            <FaCamera />
+            {isImageUploading && <div className="loading-spinner ml-2" style={{ width: '18px', height: '18px' }}></div>}
+          </button>
+
+          <button
+            id="uploadFileButton"
+            className="premium-button premium-button-secondary flex-1 sm:w-auto text-sm sm:text-base py-2 sm:py-3"
+            onClick={() => document.getElementById('fileUploadInput')?.click()}
+            disabled={isImageUploading || isFileUploading}
+            title="上传PDF或Word文档提取日语文字"
+          >
+            <FaFile />
+            {isFileUploading && <div className="loading-spinner ml-2" style={{ width: '18px', height: '18px' }}></div>}
+          </button>
+
+          {/* TTS按钮组 */}
+          <div className="relative flex-1 sm:w-auto" ref={dropdownRef}>
+            <div className="flex">
+              <button
+                id="speakButton"
+                className="premium-button premium-button-secondary flex-1 sm:w-auto text-sm sm:text-base py-2 sm:py-3 rounded-r-none border-r-0"
+                onClick={handleSpeak}
+                disabled={!inputText.trim() || isLoading || isSpeaking}
+                title={inputText.trim() ? 
+                  (ttsProvider === 'gemini' ? 
+                    `朗读文本 (Gemini TTS，预计需要 ${getEstimatedTime(inputText)})` : 
+                    '朗读文本 (系统 TTS，即时播放)'
+                  ) : 
+                  '请先输入文本'
+                }
+              >
+                <FaVolumeUp />
+                {isSpeaking && <div className="loading-spinner ml-2" style={{ width: '18px', height: '18px' }}></div>}
+              </button>
+              
+              <button
+                className="premium-button premium-button-secondary px-2 py-2 sm:py-3 rounded-l-none border-l border-gray-300"
+                onClick={() => setShowTtsDropdown(!showTtsDropdown)}
+                disabled={isLoading || isSpeaking}
+                title="选择语音合成方式"
+              >
+                <FaChevronDown className="text-xs" />
+              </button>
+            </div>
+            
+            {/* TTS选择下拉菜单 */}
+            {showTtsDropdown && (
+              <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg z-10 p-3 w-72" 
+                   style={{
+                     backgroundColor: 'var(--bg-primary)',
+                     border: '1px solid var(--border-secondary)',
+                     color: 'var(--text-primary)'
+                   }}>
+                {/* TTS提供商选择 */}
+                <div className="mb-3">
+                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>语音合成方式</label>
+                  <div className="space-y-1">
+                    <button
+                      className="w-full px-3 py-2 text-left text-sm rounded-md transition-colors border"
+                      style={{
+                        backgroundColor: ttsProvider === 'system' ? 'var(--text-link)' : 'var(--bg-secondary)',
+                        color: ttsProvider === 'system' ? 'white' : 'var(--text-primary)',
+                        borderColor: ttsProvider === 'system' ? 'var(--text-link)' : 'var(--border-secondary)'
+                      }}
+                      onClick={() => handleTtsProviderSelect('system')}
+                    >
+                      <FaDesktop className="mr-2 inline" />
+                      系统 TTS
+                      <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>浏览器内置，速度快</div>
+                    </button>
+                    <button
+                      className="w-full px-3 py-2 text-left text-sm rounded-md transition-colors border"
+                      style={{
+                        backgroundColor: ttsProvider === 'gemini' ? 'var(--text-link)' : 'var(--bg-secondary)',
+                        color: ttsProvider === 'gemini' ? 'white' : 'var(--text-primary)',
+                        borderColor: ttsProvider === 'gemini' ? 'var(--text-link)' : 'var(--border-secondary)'
+                      }}
+                      onClick={() => handleTtsProviderSelect('gemini')}
+                    >
+                      <FaRobot className="mr-2 inline" />
+                      Gemini TTS
+                      <div className="text-xs mt-1" style={{ color: ttsProvider === 'gemini' ? 'rgba(255,255,255,0.8)' : 'var(--text-tertiary)' }}>AI语音，音质自然，速度慢</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Gemini TTS 专用设置 */}
+                {ttsProvider === 'gemini' && (
+                  <>
+                    {/* 语音选择 */}
+                    <div className="mb-3">
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>语音选择</label>
+                      <select
+                        value={selectedVoice}
+                        onChange={(e) => handleVoiceChange(e.target.value)}
+                        className="w-full px-2 py-1 text-sm border rounded-md focus:ring-2 appearance-none"
+                        style={{
+                          backgroundColor: 'var(--bg-primary)',
+                          borderColor: 'var(--border-secondary)',
+                          color: 'var(--text-primary)',
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
+                          backgroundPosition: 'right 0.5rem center',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundSize: '1.5em 1.5em',
+                          paddingRight: '2.5rem'
+                        }}
+                      >
+                        {TTS_VOICES.map((voice) => (
+                          <option key={voice.value} value={voice.value}>
+                            {voice.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 语音风格 */}
+                    <div className="mb-2">
+                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>语音风格</label>
+                      <select
+                        value={selectedStyle}
+                        onChange={(e) => handleStyleChange(e.target.value)}
+                        className="w-full px-2 py-1 text-sm border rounded-md focus:ring-2 appearance-none"
+                        style={{
+                          backgroundColor: 'var(--bg-primary)',
+                          borderColor: 'var(--border-secondary)',
+                          color: 'var(--text-primary)',
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
+                          backgroundPosition: 'right 0.5rem center',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundSize: '1.5em 1.5em',
+                          paddingRight: '2.5rem'
+                        }}
+                      >
+                        {TTS_STYLES.map((style) => (
+                          <option key={style.value} value={style.value}>
+                            {style.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button
+          id="analyzeButton"
+          className="premium-button premium-button-primary w-full sm:w-auto sm:order-2 text-sm sm:text-base py-2 sm:py-3"
+          onClick={handleAnalyze}
+          disabled={isLoading}
+        >
+          {!isLoading && <span className="button-text">解析句子</span>}
+          <div className="loading-spinner" style={{ display: isLoading ? 'inline-block' : 'none', width: '18px', height: '18px' }}></div>
+          {isLoading && <span className="button-text">解析中...</span>}
+        </button>
+      </div>
+      
+      <div id="imageUploadStatus" className={uploadStatusClass}>{uploadStatus}</div>
+      
+      {ttsAudioUrl && (
+        <div className="mt-3">
+          <audio 
+            key={ttsAudioUrl} 
+            src={ttsAudioUrl} 
+            controls 
+            autoPlay 
+            className="w-full"
+            style={{ height: '40px' }}
+          />
+        </div>
+      )}
+
+      {isSpeaking && ttsProvider === 'gemini' && (
+        <div className="mt-3 p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <FaInfoCircle className="text-blue-500 mt-0.5" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                <strong>正在进行高质量语音合成，请稍候...</strong>
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                • 使用 Gemini TTS 技术，音质更自然<br/>
+                • 当前文本预计需要：{getEstimatedTime(inputText)}<br/>
+                • 请保持页面打开，不要离开或刷新
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+} 

@@ -1,0 +1,164 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { ApiClient } from '../../utils/api-client';
+import { tokenUsageService } from '../../lib/services/tokenUsageService';
+import { authMiddleware } from '../../lib/utils/auth';
+import { DatabaseApiKeyManager } from '../../utils/database-api-key-manager';
+
+// 创建API客户端实例
+const apiClient = new ApiClient();
+const databaseKeyManager = new DatabaseApiKeyManager();
+
+export async function POST(req: NextRequest) {
+  try {
+    // 解析请求体
+    const requestData = await req.json();
+    
+    // 从请求头中获取用户认证token（不再支持用户自定义API密钥）
+    // const authHeader = req.headers.get('Authorization');
+    // const _userAuthToken = authHeader ? authHeader.replace('Bearer ', '') : '';
+    
+    // 使用服务器端API密钥进行API调用
+    const userApiKey = '';
+    
+    // 从请求中提取数据
+    const { word, pos, sentence, furigana, romaji, apiUrl } = requestData;
+    
+    // 优先使用用户提供的API URL，否则使用环境变量中的URL
+    const effectiveApiUrl = apiUrl || await databaseKeyManager.getProviderUrl('gemini') || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent';
+
+    if (!word || !pos || !sentence) {
+      return NextResponse.json(
+        { error: { message: '缺少必要的参数' } },
+        { status: 400 }
+      );
+    }
+
+    // 获取当前用户信息（用于统计）
+    const authResult = await authMiddleware(false)(req);
+    const currentUser = authResult.user;
+
+    // 构建上下文信息
+    let contextWordInfo = `单词 "${word}" (词性: ${pos}`;
+    if (furigana) contextWordInfo += `, 读音: ${furigana}`;
+    if (romaji) contextWordInfo += `, 罗马音: ${romaji}`;
+    contextWordInfo += `)`;
+
+    // 构建详情查询请求
+    const detailPrompt = `在日语句子 "${sentence}" 的上下文中，${contextWordInfo} 的具体含义是什么？请提供以下信息，并以严格的JSON对象格式返回，不要包含任何markdown或其他非JSON字符：\n\n请特别注意：\n1. 在 "explanation" 字段中，对所有重要的语法术语、动词原形、词形变化等使用【】符号进行高亮标记。\n2. 在 "explanation" 字段的字符串值中，必须使用 \\n (反斜杠和n) 来表示换行。\n3. 在 "explanation" 字段中，提供详尽的语法解释，包括：\n   a. 如果是助词，解释其在本句中的【具体功能和用法】。\n   b. 如果有词形变化，详细说明其【变化规则】（例如：五段动词的て形变化）。\n   c. 解释该词汇在句子结构中扮演的【角色】。\n   d. 提供1-2个简单的【例句】来展示该词形或语法的典型用法。\n4. 如果是动词，准确识别其时态、语态和礼貌程度。\n5. 对于助动词与动词组合，明确说明原形及活用过程。\n6. 对于形容词，注意区分い形容词和な形容词，并识别其活用形式。\n7. 准确提供辞书形。\n8. **重要：在提供日语例句时，请为所有汉字标注读音，格式为：漢字（ひらがな）。例如：今日（きょう）は良（よ）い天気（てんき）です。**\n\n{\n  "originalWord": "${word}",\n  "chineseTranslation": "中文翻译",\n  "pos": "${pos}",\n  "furigana": "${furigana || ''}",\n  "romaji": "${romaji || ''}",\n  "dictionaryForm": "辞书形（如果适用）",\n  "explanation": "中文解释（请包含详细语法、词形变化规则、助词用法及例句，并使用【】高亮关键术语和 \\n 换行，日语例句中的汉字请标注读音）"\n}`;
+
+    // 估算输入TOKEN数量
+    const tokenEstimate = tokenUsageService.estimateTokens(detailPrompt);
+
+    // 构建发送到Gemini API的请求
+    const payload = {
+      contents: [{
+        parts: [{ text: detailPrompt }]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.1,
+        maxOutputTokens: 8192,
+      }
+    };
+
+    // 使用API客户端发送请求，支持多KEY自动切换
+    const result = await apiClient.makeRequest({
+      url: effectiveApiUrl,
+      method: 'POST',
+      body: payload
+    }, userApiKey);
+
+    if (!result.success) {
+      console.error('AI API error (Word Detail):', result.error);
+      
+      // 记录失败的TOKEN使用量
+      if (currentUser?.userId) {
+        try {
+          await tokenUsageService.recordTokenUsage({
+            userId: currentUser.userId,
+            apiEndpoint: 'word-detail',
+            inputTokens: tokenEstimate.inputTokens,
+            outputTokens: 0,
+            modelName: 'gemini-2.5-flash',
+            success: false
+          });
+        } catch (error) {
+          console.error('TOKEN使用量记录失败:', error);
+        }
+      }
+      
+      return NextResponse.json(
+        { error: { message: result.error } },
+        { status: 500 }
+      );
+    }
+
+    // 转换响应格式以兼容前端
+    type GeminiCandidate = {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            text?: string;
+          }>;
+        };
+      }>;
+    };
+
+    const geminiResponse = result.data as GeminiCandidate | GeminiCandidate[];
+    
+    // 从Gemini响应中提取详情文本
+    let detailText = '';
+    if (Array.isArray(geminiResponse)) {
+      // 处理数组格式的响应，合并所有文本部分
+      for (const chunk of geminiResponse) {
+        if (chunk.candidates && chunk.candidates[0] && chunk.candidates[0].content) {
+          const parts = chunk.candidates[0].content.parts;
+          if (parts && parts[0] && parts[0].text) {
+            detailText += parts[0].text;
+          }
+        }
+      }
+    } else if (geminiResponse.candidates && geminiResponse.candidates[0] && geminiResponse.candidates[0].content) {
+      // 处理单个响应格式
+      const parts = geminiResponse.candidates[0].content.parts;
+      if (parts && parts[0] && parts[0].text) {
+        detailText = parts[0].text;
+      }
+    }
+    
+    // 记录成功的TOKEN使用量
+    if (currentUser?.userId) {
+      const outputTokens = tokenUsageService.estimateTokens(detailText).inputTokens;
+      try {
+        await tokenUsageService.recordTokenUsage({
+          userId: currentUser.userId,
+          apiEndpoint: 'word-detail',
+          inputTokens: tokenEstimate.inputTokens,
+          outputTokens: outputTokens,
+          modelName: 'gemini-2.5-flash',
+          success: true
+        });
+      } catch (error) {
+        console.error('TOKEN使用量记录失败:', error);
+      }
+    }
+    
+    // 转换为前端期望的格式（OpenAI兼容格式）
+    const compatibleResponse = {
+      choices: [{
+        message: {
+          content: detailText || '查询词汇详情失败：未找到有效的释义结果'
+        }
+      }]
+    };
+    
+    return NextResponse.json(compatibleResponse);
+  } catch (error) {
+    console.error('Server error (Word Detail):', error);
+    return NextResponse.json(
+      { error: { message: error instanceof Error ? error.message : '服务器错误' } },
+      { status: 500 }
+    );
+  }
+}
