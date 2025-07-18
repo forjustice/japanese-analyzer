@@ -54,28 +54,6 @@ export default function AuthModal({
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      
-      // 强制检查主题状态，确保AuthModal在正确的主题下显示
-      const forceThemeCheck = () => {
-        const root = document.documentElement;
-        
-        // 确保主题类正确应用
-        if (!root.classList.contains('dark') && !root.classList.contains('light')) {
-          const userTheme = localStorage.getItem('userTheme') || 'system';
-          if (userTheme === 'system') {
-            const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            root.classList.add(systemDark ? 'dark' : 'light');
-          } else {
-            root.classList.add(userTheme);
-          }
-        }
-      };
-      
-      // 立即检查主题
-      forceThemeCheck();
-      
-      // 延迟再次检查，确保在生产环境中也能正确应用
-      setTimeout(forceThemeCheck, 50);
     } else {
       document.body.style.overflow = 'unset';
     }
@@ -682,13 +660,13 @@ export default function AuthModal({
                 <div className="flex items-center mb-1">
                   <span className="text-muted-foreground">密码强度:</span>
                   {passwordStrength.isValid ? (
-                    <FaCheck className="ml-2 text-green-500" />
+                    <FaCheck className="ml-2 text-green-600 dark:text-green-400" />
                   ) : (
-                    <span className="ml-2 text-red-500">不足</span>
+                    <span className="ml-2 text-red-600 dark:text-red-400">不足</span>
                   )}
                 </div>
                 {!passwordStrength.isValid && (
-                  <ul className="text-red-500 text-xs space-y-1">
+                  <ul className="text-red-600 dark:text-red-400 text-xs space-y-1">
                     {passwordStrength.errors.map((error, index) => (
                       <li key={index}>• {error}</li>
                     ))}
@@ -699,8 +677,8 @@ export default function AuthModal({
 
             {/* 错误信息 */}
             {(error || localError) && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 transition-colors duration-200">
-                <p className="text-red-700 dark:text-red-300 text-sm transition-colors duration-200">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 transition-colors duration-200">
+                <p className="text-destructive text-sm transition-colors duration-200">
                   {error || localError}
                 </p>
               </div>
@@ -708,8 +686,8 @@ export default function AuthModal({
 
             {/* 成功信息 */}
             {successMessage && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 transition-colors duration-200">
-                <p className="text-green-700 dark:text-green-300 text-sm transition-colors duration-200">
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 transition-colors duration-200">
+                <p className="text-green-600 dark:text-green-400 text-sm transition-colors duration-200">
                   {successMessage}
                 </p>
               </div>
