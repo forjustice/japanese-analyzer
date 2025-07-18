@@ -15,6 +15,7 @@ const notoSansJP = Noto_Sans_JP({
   subsets: ['latin'],
   weight: ['400', '500', '700'],
   display: 'swap',
+  fallback: ['Arial', 'Helvetica', 'sans-serif'],
 });
 
 export const metadata: Metadata = {

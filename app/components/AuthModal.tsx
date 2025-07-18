@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaLock, FaEye, FaEyeSlash, FaUser, FaEnvelope, FaArrowLeft, FaCheck } from 'react-icons/fa';
+import { FaLock, FaEye, FaEyeSlash, FaUser, FaEnvelope, FaArrowLeft, FaCheck, FaSun, FaMoon } from 'react-icons/fa';
+import { useTheme } from '../contexts/ThemeContext';
 
 // 认证模式类型
 type AuthMode = 'login' | 'register' | 'verify' | 'reset';
@@ -49,6 +50,94 @@ export default function AuthModal({
   const [localError, setLocalError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [passwordStrength, setPasswordStrength] = useState<{ isValid: boolean; errors: string[] }>({ isValid: false, errors: [] });
+  const { theme, actualTheme, setTheme } = useTheme();
+
+  // 主题切换处理
+  const handleThemeToggle = () => {
+    // 在用户端，只在明确的light和dark之间切换
+    const newTheme = actualTheme === 'light' ? 'dark' : 'light';
+    console.log('Theme toggle: current =', actualTheme, ', switching to =', newTheme);
+    
+    // 直接操作DOM确保主题切换立即生效
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(newTheme);
+    
+    // 更新ThemeContext
+    setTheme(newTheme);
+    
+    // 保存到localStorage
+    localStorage.setItem('userTheme', newTheme);
+    
+    console.log('DOM classes after toggle:', root.classList.toString());
+  };
+
+  // 通用输入框样式
+  const getInputStyle = () => ({
+    backgroundColor: actualTheme === 'dark' ? '#374151' : '#ffffff',
+    borderColor: actualTheme === 'dark' ? '#4b5563' : '#d1d5db',
+    color: actualTheme === 'dark' ? '#f3f4f6' : '#111827',
+    // 防止浏览器自动填充的黄色背景
+    WebkitBoxShadow: `0 0 0 1000px ${actualTheme === 'dark' ? '#374151' : '#ffffff'} inset`,
+    WebkitTextFillColor: actualTheme === 'dark' ? '#f3f4f6' : '#111827',
+    transition: 'all 0.15s ease-in-out'
+  });
+
+  // 添加placeholder样式到页面
+  useEffect(() => {
+    const styleId = 'auth-modal-placeholder-style';
+    let style = document.getElementById(styleId);
+    
+    if (!style) {
+      style = document.createElement('style');
+      style.id = styleId;
+      document.head.appendChild(style);
+    }
+    
+    const placeholderColor = actualTheme === 'dark' ? '#9ca3af' : '#6b7280';
+    style.textContent = `
+      .auth-modal-input::placeholder {
+        color: ${placeholderColor} !important;
+        opacity: 1 !important;
+      }
+      .auth-modal-input::-webkit-input-placeholder {
+        color: ${placeholderColor} !important;
+        opacity: 1 !important;
+      }
+      .auth-modal-input::-moz-placeholder {
+        color: ${placeholderColor} !important;
+        opacity: 1 !important;
+      }
+      .auth-modal-input:-ms-input-placeholder {
+        color: ${placeholderColor} !important;
+        opacity: 1 !important;
+      }
+    `;
+    
+    return () => {
+      if (style && style.parentNode) {
+        style.parentNode.removeChild(style);
+      }
+    };
+  }, [actualTheme]);
+
+  // 监听主题变化
+  useEffect(() => {
+    console.log('AuthModal - Theme changed:', { theme, actualTheme });
+    // 确保DOM类名与actualTheme同步
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(actualTheme);
+  }, [theme, actualTheme]);
+
+  // 初始化主题
+  useEffect(() => {
+    if (isOpen) {
+      const root = document.documentElement;
+      console.log('AuthModal opened - Current DOM classes:', root.classList.toString());
+      console.log('AuthModal opened - actualTheme:', actualTheme);
+    }
+  }, [isOpen, actualTheme]);
 
   // 防止背景滚动
   useEffect(() => {
@@ -439,31 +528,31 @@ export default function AuthModal({
         return {
           title: '用户登录',
           description: '欢迎回来，请登录你的账户',
-          icon: <FaUser className="text-primary text-2xl" />
+          icon: <FaUser className="text-blue-600 dark:text-blue-400 text-2xl" />
         };
       case 'register':
         return {
           title: '注册账户',
           description: '创建你的日语分析器账户',
-          icon: <FaUser className="text-green-600 dark:text-green-400 text-2xl" />
+          icon: <FaUser className="text-blue-600 dark:text-blue-400 text-2xl" />
         };
       case 'verify':
         return {
           title: '邮箱验证',
           description: '请输入发送到你邮箱的验证码',
-          icon: <FaEnvelope className="text-primary text-2xl" />
+          icon: <FaEnvelope className="text-blue-600 dark:text-blue-400 text-2xl" />
         };
       case 'reset':
         return {
           title: '重置密码',
           description: isCodeVerified ? '设置新密码' : (successMessage ? '输入验证码进行验证' : '找回你的密码'),
-          icon: <FaLock className="text-primary text-2xl" />
+          icon: <FaLock className="text-blue-600 dark:text-blue-400 text-2xl" />
         };
       default:
         return {
           title: '认证',
           description: '',
-          icon: <FaLock className="text-primary text-2xl" />
+          icon: <FaLock className="text-blue-600 dark:text-blue-400 text-2xl" />
         };
     }
   };
@@ -472,29 +561,72 @@ export default function AuthModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-lg shadow-xl max-w-md w-full mx-auto transition-colors duration-200 max-h-[90vh] overflow-y-auto">
+      <div 
+        className="rounded-lg shadow-xl max-w-md w-full mx-auto transition-colors duration-200 max-h-[90vh] overflow-y-auto"
+        style={{
+          backgroundColor: actualTheme === 'dark' ? '#1f2937' : '#ffffff',
+          borderColor: actualTheme === 'dark' ? '#4b5563' : '#e5e7eb',
+          borderWidth: '1px',
+          color: actualTheme === 'dark' ? '#f3f4f6' : '#111827'
+        }}
+      >
         <div className="p-6">
-          {/* 返回按钮 */}
-          {currentMode !== 'login' && (
-            <button
-              onClick={() => handleModeChange('login')}
-              className="mb-4 flex items-center text-muted-foreground hover:text-foreground transition-colors"
-              disabled={isLoading}
-            >
-              <FaArrowLeft className="mr-2" />
-              返回登录
-            </button>
-          )}
+          {/* 头部区域 */}
+          <div className="flex justify-between items-center mb-4">
+            {/* 返回按钮 */}
+            {currentMode !== 'login' ? (
+              <button
+                onClick={() => handleModeChange('login')}
+                className="flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                disabled={isLoading}
+              >
+                <FaArrowLeft className="mr-2" />
+                返回登录
+              </button>
+            ) : (
+              <div></div>
+            )}
+            
+            {/* 主题切换按钮 */}
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={handleThemeToggle}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title={actualTheme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
+              >
+                {actualTheme === 'dark' ? (
+                  <FaSun className="w-4 h-4 text-yellow-500" />
+                ) : (
+                  <FaMoon className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
+            </div>
+          </div>
 
           {/* 标题区域 */}
           <div className="text-center mb-6">
-            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 transition-colors duration-200">
+            <div 
+              className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors duration-200"
+              style={{
+                backgroundColor: actualTheme === 'dark' ? '#1e3a8a' : '#eff6ff'
+              }}
+            >
               {modeInfo.icon}
             </div>
-            <h2 className="text-2xl font-bold text-foreground mb-2 transition-colors duration-200">
+            <h2 
+              className="text-2xl font-bold mb-2 transition-colors duration-200"
+              style={{
+                color: actualTheme === 'dark' ? '#f3f4f6' : '#111827'
+              }}
+            >
               {modeInfo.title}
             </h2>
-            <p className="text-muted-foreground transition-colors duration-200">
+            <p 
+              className="transition-colors duration-200"
+              style={{
+                color: actualTheme === 'dark' ? '#9ca3af' : '#6b7280'
+              }}
+            >
               {modeInfo.description}
             </p>
           </div>
@@ -510,7 +642,8 @@ export default function AuthModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   onKeyPress={handleKeyPress}
                   placeholder="请输入邮箱地址"
-                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out"
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 auth-modal-input"
+                  style={getInputStyle()}
                   disabled={isLoading}
                   required
                 />
@@ -526,7 +659,8 @@ export default function AuthModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                   onKeyPress={handleKeyPress}
                   placeholder="用户名（可选）"
-                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out"
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 auth-modal-input"
+                  style={getInputStyle()}
                   disabled={isLoading}
                 />
               </div>
@@ -541,7 +675,8 @@ export default function AuthModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                   onKeyPress={handleKeyPress}
                   placeholder="请输入密码"
-                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out pr-12"
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12 auth-modal-input"
+                  style={getInputStyle()}
                   disabled={isLoading}
                   required
                   autoFocus={currentMode === 'login'}
@@ -549,7 +684,7 @@ export default function AuthModal({
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none transition-colors duration-200"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none transition-colors duration-200"
                   disabled={isLoading}
                 >
                   {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -566,14 +701,15 @@ export default function AuthModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
                   onKeyPress={handleKeyPress}
                   placeholder="确认密码"
-                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out pr-12"
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12 auth-modal-input"
+                  style={getInputStyle()}
                   disabled={isLoading}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none transition-colors duration-200"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none transition-colors duration-200"
                   disabled={isLoading}
                 >
                   {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
@@ -590,14 +726,15 @@ export default function AuthModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, newPassword: e.target.value }))}
                   onKeyPress={handleKeyPress}
                   placeholder="新密码"
-                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out pr-12"
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12 auth-modal-input"
+                  style={getInputStyle()}
                   disabled={isLoading}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none transition-colors duration-200"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none transition-colors duration-200"
                   disabled={isLoading}
                 >
                   {showNewPassword ? <FaEyeSlash /> : <FaEye />}
@@ -620,7 +757,8 @@ export default function AuthModal({
                   }}
                   onKeyPress={handleKeyPress}
                   placeholder="请输入6位验证码"
-                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out text-center text-2xl tracking-widest"
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center text-2xl tracking-widest auth-modal-input"
+                  style={getInputStyle()}
                   disabled={isLoading}
                   required
                   maxLength={6}
@@ -632,7 +770,7 @@ export default function AuthModal({
                         <button
                           type="button"
                           onClick={handleSendCode}
-                          className="text-sm bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 disabled:opacity-50"
+                          className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
                           disabled={isLoading || !formData.email || !formData.password || !passwordStrength.isValid}
                         >
                           {isCodeSent ? '重新发送验证码' : '发送验证码'}
@@ -643,7 +781,7 @@ export default function AuthModal({
                       <button
                         type="button"
                         onClick={handleResendCode}
-                        className="text-sm text-primary hover:underline"
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                         disabled={isLoading}
                       >
                         重新发送验证码
@@ -658,7 +796,7 @@ export default function AuthModal({
             {((currentMode === 'register' && formData.password) || (currentMode === 'reset' && isCodeVerified && formData.newPassword)) && (
               <div className="text-sm">
                 <div className="flex items-center mb-1">
-                  <span className="text-muted-foreground">密码强度:</span>
+                  <span className="text-gray-600 dark:text-gray-400">密码强度:</span>
                   {passwordStrength.isValid ? (
                     <FaCheck className="ml-2 text-green-600 dark:text-green-400" />
                   ) : (
@@ -677,8 +815,8 @@ export default function AuthModal({
 
             {/* 错误信息 */}
             {(error || localError) && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 transition-colors duration-200">
-                <p className="text-destructive text-sm transition-colors duration-200">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 transition-colors duration-200">
+                <p className="text-red-700 dark:text-red-300 text-sm transition-colors duration-200">
                   {error || localError}
                 </p>
               </div>
@@ -697,11 +835,15 @@ export default function AuthModal({
             <button
               type="submit"
               disabled={isLoading || (currentMode === 'register' && (!formData.code || !isCodeSent))}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              style={{
+                backgroundColor: '#2563eb',
+                color: '#ffffff'
+              }}
             >
               {isLoading ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground mr-2"></div>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                   处理中...
                 </>
               ) : (
@@ -727,7 +869,7 @@ export default function AuthModal({
                     还没有账户？
                     <button
                       onClick={() => handleModeChange('register')}
-                      className="ml-1 text-primary hover:underline"
+                      className="ml-1 text-blue-600 dark:text-blue-400 hover:underline"
                       disabled={isLoading}
                     >
                       立即注册
@@ -737,7 +879,7 @@ export default function AuthModal({
                     忘记密码？
                     <button
                       onClick={() => handleModeChange('reset')}
-                      className="ml-1 text-primary hover:underline"
+                      className="ml-1 text-blue-600 dark:text-blue-400 hover:underline"
                       disabled={isLoading}
                     >
                       重置密码
@@ -762,7 +904,7 @@ export default function AuthModal({
 
           {/* 底部说明 */}
           <div className="mt-6 text-center">
-            <p className="text-xs text-muted-foreground transition-colors duration-200">
+            <p className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
               注册即表示你同意我们的服务条款和隐私政策
             </p>
           </div>

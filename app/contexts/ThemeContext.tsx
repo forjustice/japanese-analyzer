@@ -17,8 +17,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
-    // 从本地存储加载主题设置
-    const savedTheme = localStorage.getItem('theme') as Theme;
+    // 从本地存储加载主题设置 - 根据路径决定使用哪个主题键
+    const isAdminPath = window.location.pathname.startsWith('/admin');
+    const themeKey = isAdminPath ? 'theme' : 'userTheme';
+    const savedTheme = localStorage.getItem(themeKey) as Theme;
     if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
       setTheme(savedTheme);
     }
@@ -57,7 +59,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const handleSetTheme = (newTheme: Theme) => {
     setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
+    // 根据路径决定使用哪个主题键
+    const isAdminPath = window.location.pathname.startsWith('/admin');
+    const themeKey = isAdminPath ? 'theme' : 'userTheme';
+    localStorage.setItem(themeKey, newTheme);
   };
 
   return (
