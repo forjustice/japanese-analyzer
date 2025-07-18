@@ -300,7 +300,7 @@ export default function KeyManagement() {
                     添加API密钥
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-2xl bg-background border border-border shadow-lg">
                   <DialogHeader>
                     <DialogTitle>
                       {editingKey ? '编辑API密钥' : '添加新的API密钥'}
@@ -332,7 +332,7 @@ export default function KeyManagement() {
                         <SelectTrigger>
                           <SelectValue placeholder="选择提供商" />
                         </SelectTrigger>
-                        <SelectContent className="z-50">
+                        <SelectContent className="z-[60] bg-popover border border-border shadow-md backdrop-blur-sm">
                           <SelectItem value="openai">OpenAI</SelectItem>
                           <SelectItem value="claude">Claude</SelectItem>
                           <SelectItem value="gemini">Gemini</SelectItem>
@@ -443,7 +443,7 @@ export default function KeyManagement() {
         </div>
       )}
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-background border border-border shadow-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>

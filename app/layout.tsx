@@ -48,8 +48,12 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `
           (function() {
             function getThemePreference() {
-              if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
-                return localStorage.getItem('theme');
+              // 根据路径决定使用哪个主题键
+              const isAdminPath = window.location.pathname.startsWith('/admin');
+              const themeKey = isAdminPath ? 'theme' : 'userTheme';
+              
+              if (typeof localStorage !== 'undefined' && localStorage.getItem(themeKey)) {
+                return localStorage.getItem(themeKey);
               }
               return 'system';
             }
@@ -63,6 +67,7 @@ export default function RootLayout({
             
             const theme = getThemePreference();
             const actualTheme = getActualTheme(theme);
+            document.documentElement.classList.remove('light', 'dark');
             document.documentElement.classList.add(actualTheme);
           })();
         `}} />
@@ -72,20 +77,22 @@ export default function RootLayout({
             var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
             if (isSafari) {
               document.documentElement.classList.add('safari');
-              // 修复Safari中的输入问题
+              // 修复Safari中的输入问题 - 不再使用硬编码颜色，让CSS处理
               document.addEventListener('DOMContentLoaded', function() {
                 var inputs = document.querySelectorAll('input, textarea');
                 inputs.forEach(function(input) {
-                  var isDark = document.documentElement.classList.contains('dark');
-                  input.style.webkitTextFillColor = isDark ? '#f9fafb' : 'black';
+                  // 移除硬编码颜色，让CSS变量处理主题
+                  input.style.webkitTextFillColor = '';
                   input.style.opacity = '1';
+                  input.style.webkitAppearance = 'none';
+                  input.style.appearance = 'none';
                 });
               });
             }
           })();
         `}} />
       </head>
-      <body className={`${inter.className} ${notoSansJP.className} antialiased bg-gray-50 dark:bg-gray-900 transition-colors duration-200`}>
+      <body className={`${inter.className} ${notoSansJP.className} antialiased bg-background transition-colors duration-200`}>
         <ThemeProvider>
           {children}
         </ThemeProvider>

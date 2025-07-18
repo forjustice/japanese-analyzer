@@ -290,7 +290,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       );
     }
 
-    const { username, email, avatar_url, is_verified } = await req.json();
+    const { username, email, is_verified } = await req.json();
 
     // 验证输入数据
     if (!username || !email) {
@@ -327,9 +327,9 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       // 更新用户资料
       const affectedRows = await db.update(
         `UPDATE users 
-         SET username = ?, email = ?, avatar_url = ?, is_verified = ?, updated_at = NOW()
+         SET username = ?, email = ?, is_verified = ?, updated_at = NOW()
          WHERE id = ?`,
-        [username, email, avatar_url || null, is_verified ?? false, userId]
+        [username, email, is_verified ?? false, userId]
       );
 
       if (affectedRows === 0) {

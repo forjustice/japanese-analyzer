@@ -138,7 +138,7 @@ export default function OrderManagement() {
                     <TableCell className="font-mono">{order.order_no}</TableCell>
                     <TableCell>
                       <div>{order.user.username}</div>
-                      <div className="text-sm text-gray-500">{order.user.email}</div>
+                      <div className="text-sm text-muted-foreground">{order.user.email}</div>
                     </TableCell>
                     <TableCell>{order.product_name}</TableCell>
                     <TableCell>{formatPrice(order.product_price)}</TableCell>
@@ -152,7 +152,7 @@ export default function OrderManagement() {
                 ))}
                 {orders.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       暂无订单数据
                     </TableCell>
                   </TableRow>

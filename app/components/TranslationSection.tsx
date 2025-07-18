@@ -71,7 +71,7 @@ export default function TranslationSection({
       {(isLoading || translation) && (
         <div id="fullTranslationCard" className="premium-card mt-4">
           <div className="flex justify-between items-center mb-3">
-            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300" style={{ marginBottom: isVisible ? '0.75rem' : '0' }}>中文翻译</h2>
+            <h2 className="text-2xl font-semibold text-foreground" style={{ marginBottom: isVisible ? '0.75rem' : '0' }}>中文翻译</h2>
             <button 
               id="toggleFullTranslationButton" 
               className="premium-button premium-button-outlined text-sm px-3 py-1"
@@ -82,11 +82,11 @@ export default function TranslationSection({
           </div>
           
           {isVisible && (
-            <div id="fullTranslationOutput" className="text-gray-800 dark:text-gray-200 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg min-h-[50px] whitespace-pre-wrap">
+            <div id="fullTranslationOutput" className="text-foreground p-3 bg-muted rounded-lg min-h-[50px] whitespace-pre-wrap">
               {isLoading && !translation ? (
                 <div className="flex items-center justify-center py-4">
                   <div className="loading-spinner"></div>
-                  <span className="ml-2 text-gray-500 dark:text-gray-400">正在翻译，请稍候...</span>
+                  <span className="ml-2 text-muted-foreground">正在翻译，请稍候...</span>
                 </div>
               ) : (
                 translation

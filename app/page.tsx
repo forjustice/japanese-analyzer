@@ -26,7 +26,8 @@ export default function Home() {
   const [ttsProvider, setTtsProvider] = useState<'system' | 'gemini'>('gemini');
   
   const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [userTheme, setUserTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const [, setIsDarkMode] = useState(false);
   
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isUserDashboardOpen, setIsUserDashboardOpen] = useState(false);
@@ -50,6 +51,11 @@ export default function Home() {
   }, [isSettingsDropdownOpen]);
 
   useEffect(() => {
+    // 初始化用户端主题设置
+    const savedUserTheme = localStorage.getItem('userTheme') as 'light' | 'dark' | 'system' || 'system';
+    setUserTheme(savedUserTheme);
+    applyUserTheme(savedUserTheme);
+    
     const checkTheme = () => {
       const isDark = document.documentElement.classList.contains('dark');
       setIsDarkMode(isDark);
@@ -62,9 +68,40 @@ export default function Home() {
       attributes: true,
       attributeFilter: ['class']
     });
+
+    // 监听系统主题变化
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemThemeChange = () => {
+      if (userTheme === 'system') {
+        applyUserTheme('system');
+      }
+    };
     
-    return () => observer.disconnect();
-  }, []);
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+    
+    return () => {
+      observer.disconnect();
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    };
+  }, [userTheme]);
+
+  const applyUserTheme = (theme: 'light' | 'dark' | 'system') => {
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    
+    if (theme === 'system') {
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      root.classList.add(systemDark ? 'dark' : 'light');
+    } else {
+      root.classList.add(theme);
+    }
+  };
+
+  const handleUserThemeChange = (theme: 'light' | 'dark' | 'system') => {
+    setUserTheme(theme);
+    localStorage.setItem('userTheme', theme);
+    applyUserTheme(theme);
+  };
   
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
@@ -614,12 +651,12 @@ export default function Home() {
   if (requiresAuth && !authState.isAuthenticated) {
     return (
       <>
-        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background transition-colors duration-200">
           <div className="text-center mb-8">
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-gray-100 transition-colors duration-200">
-              日本語<span className="text-[#007AFF] dark:text-blue-400">文章</span>解析器
+            <h1 className="text-3xl sm:text-4xl font-bold text-foreground transition-colors duration-200">
+              日本語<span className="text-primary">文章</span>解析器
             </h1>
-            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 mt-2 transition-colors duration-200">
+            <p className="text-base sm:text-lg text-muted-foreground mt-2 transition-colors duration-200">
               AI驱动・深入理解日语句子结构与词义
             </p>
           </div>
@@ -630,76 +667,76 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start pt-4 sm:pt-8 lg:pt-16 p-3 sm:p-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col items-center justify-start pt-4 sm:pt-8 lg:pt-16 p-3 sm:p-4 bg-background transition-colors duration-200">
       <div className="w-full max-w-3xl">
         <div className="fixed top-6 right-6 z-1000 settings-dropdown">
           <button
             onClick={() => setIsSettingsDropdownOpen(!isSettingsDropdownOpen)}
-            className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-full w-10 h-10 flex items-center justify-center shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+            className="bg-card text-card-foreground border border-border rounded-full w-10 h-10 flex items-center justify-center shadow-md hover:bg-accent hover:text-accent-foreground transition-all"
             title="设置"
           >
             <i className="fas fa-cog text-lg"></i>
           </button>
           
           {isSettingsDropdownOpen && (
-            <div className="absolute top-12 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-2 min-w-48 z-50">
+            <div className="absolute top-12 right-0 bg-card border border-border rounded-lg shadow-lg py-2 min-w-48 z-50">
               {authState.authMode === 'user' && authState.user && (
-                <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-600">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{authState.user.username || '用户'}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{authState.user.email}</div>
+                <div className="px-4 py-2 border-b border-border">
+                  <div className="text-sm font-medium text-card-foreground">{authState.user.username || '用户'}</div>
+                  <div className="text-xs text-muted-foreground truncate">{authState.user.email}</div>
                 </div>
               )}
               
-              <button
-                onClick={() => {
-                  const newTheme = isDarkMode ? 'light' : 'dark';
-                  if (newTheme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                    localStorage.setItem('theme', 'dark');
-                    setIsDarkMode(true);
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                    localStorage.setItem('theme', 'light');
-                    setIsDarkMode(false);
-                  }
-                }}
-                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between"
-              >
-                <div className="flex items-center">
-                  <i className={`fas ${isDarkMode ? 'fa-moon' : 'fa-sun'} mr-2`}></i>
-                  深色模式
+              <div className="px-4 py-2 border-b border-border">
+                <label className="text-sm font-medium text-card-foreground mb-2 block">主题设置</label>
+                <div className="space-y-1">
+                  {[
+                    { value: 'light', label: '浅色模式', icon: 'fa-sun' },
+                    { value: 'dark', label: '深色模式', icon: 'fa-moon' },
+                    { value: 'system', label: '跟随系统', icon: 'fa-desktop' }
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        handleUserThemeChange(option.value as 'light' | 'dark' | 'system');
+                        setIsSettingsDropdownOpen(false);
+                      }}
+                      className={`w-full px-2 py-1 text-left text-sm rounded flex items-center transition-colors ${
+                        userTheme === option.value
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-card-foreground hover:bg-accent hover:text-accent-foreground'
+                      }`}
+                    >
+                      <i className={`fas ${option.icon} mr-2 w-4`}></i>
+                      {option.label}
+                      {userTheme === option.value && (
+                        <i className="fas fa-check ml-auto text-primary-foreground"></i>
+                      )}
+                    </button>
+                  ))}
                 </div>
-                <div className="relative inline-block w-10 h-5">
-                  <div className={`absolute inset-0 rounded-full transition-colors duration-200 ${isDarkMode ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
-                  <div className={`absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${isDarkMode ? 'translate-x-5' : 'translate-x-0'}`}></div>
-                </div>
-              </button>
+              </div>
               
-              <button onClick={() => { setIsHistoryModalOpen(true); setIsSettingsDropdownOpen(false); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center">
+              <button onClick={() => { setIsHistoryModalOpen(true); setIsSettingsDropdownOpen(false); }} className="w-full px-4 py-2 text-left text-sm text-card-foreground hover:bg-accent hover:text-accent-foreground flex items-center">
                 <i className="fas fa-history mr-2"></i>
                 历史记录
               </button>
               
               {authState.authMode === 'user' && authState.user && (
                 <>
-                  <button onClick={() => { setIsUserDashboardOpen(true); setIsSettingsDropdownOpen(false); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center">
+                  <button onClick={() => { setIsUserDashboardOpen(true); setIsSettingsDropdownOpen(false); }} className="w-full px-4 py-2 text-left text-sm text-card-foreground hover:bg-accent hover:text-accent-foreground flex items-center">
                     <i className="fas fa-user mr-2"></i>
                     用户中心
                   </button>
-                  <button onClick={() => { setIsShopModalOpen(true); setIsSettingsDropdownOpen(false); }} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center">
+                  <button onClick={() => { setIsShopModalOpen(true); setIsSettingsDropdownOpen(false); }} className="w-full px-4 py-2 text-left text-sm text-card-foreground hover:bg-accent hover:text-accent-foreground flex items-center">
                     <i className="fas fa-shopping-cart mr-2"></i>
                     TOKEN商城
                   </button>
                 </>
               )}
               
-              <a href="https://github.com/cokice/japanese-analyzer" target="_blank" rel="noopener noreferrer" onClick={() => setIsSettingsDropdownOpen(false)} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 no-underline">
-                <i className="fab fa-github mr-2"></i>
-                GitHub仓库
-              </a>
-              
               {authState.authMode === 'user' && authState.user && (
-                <button onClick={() => { authClient.logout(); setIsSettingsDropdownOpen(false); }} className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center border-t border-gray-200 dark:border-gray-600 mt-2 pt-2">
+                <button onClick={() => { authClient.logout(); setIsSettingsDropdownOpen(false); }} className="w-full px-4 py-2 text-left text-sm text-destructive hover:bg-destructive/10 flex items-center border-t border-border mt-2 pt-2">
                   <i className="fas fa-sign-out-alt mr-2"></i>
                   退出登录
                 </button>
@@ -709,10 +746,10 @@ export default function Home() {
         </div>
         
         <header className="text-center mb-6 sm:mb-8 mt-12 sm:mt-16">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-gray-100 transition-colors duration-200">
-            日本語<span className="text-[#007AFF] dark:text-blue-400">文章</span>解析器
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground transition-colors duration-200">
+            日本語<span className="text-primary">文章</span>解析器
           </h1>
-          <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 mt-2 transition-colors duration-200">
+          <p className="text-base sm:text-lg text-muted-foreground mt-2 transition-colors duration-200">
             AI驱动・深入理解日语句子结构与词义
           </p>
         </header>
@@ -728,7 +765,7 @@ export default function Home() {
             <div className="premium-card">
               <div className="flex items-center justify-center py-6">
                 <div className="loading-spinner"></div>
-                <span className="ml-3 text-gray-600 dark:text-gray-400 transition-colors duration-200">正在解析中，请稍候...</span>
+                <span className="ml-3 text-muted-foreground transition-colors duration-200">正在解析中，请稍候...</span>
               </div>
             </div>
           )}
@@ -741,7 +778,7 @@ export default function Home() {
                     <FaExclamationCircle className="text-red-500" />
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm text-red-700 dark:text-red-300 transition-colors duration-200">
+                    <p className="text-sm text-destructive transition-colors duration-200">
                       解析错误：{analysisError}
                     </p>
                   </div>
@@ -757,7 +794,7 @@ export default function Home() {
                     <FaExclamationCircle className="text-yellow-500" />
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300 transition-colors duration-200">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-400 transition-colors duration-200">
                       解析提醒：{analysisWarning}
                     </p>
                   </div>
@@ -774,6 +811,7 @@ export default function Home() {
               onShowFuriganaChange={setShowFurigana}
               userApiKey={undefined}
               userApiUrl={undefined}
+              ttsProvider={ttsProvider}
             />
           )}
 
@@ -786,8 +824,14 @@ export default function Home() {
           )}
         </main>
 
-        <footer className="text-center mt-8 sm:mt-12 py-4 sm:py-6 border-t border-gray-200 dark:border-gray-700 transition-colors duration-200">
-          <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm transition-colors duration-200">&copy; 2025 高级日语解析工具 by Howen. All rights reserved.</p>
+        <footer className="text-center mt-8 sm:mt-12 py-4 sm:py-6 border-t border-border transition-colors duration-200">
+          <div className="flex flex-col items-center space-y-2">
+            <a href="https://github.com/cokice/japanese-analyzer" target="_blank" rel="noopener noreferrer" className="flex items-center text-primary hover:text-primary/80 transition-colors duration-200 text-sm">
+              <i className="fab fa-github mr-2"></i>
+              GitHub仓库
+            </a>
+            <p className="text-muted-foreground text-xs sm:text-sm transition-colors duration-200">&copy; 2025 高级日语解析工具 by Howen. All rights reserved.</p>
+          </div>
         </footer>
       </div>
       

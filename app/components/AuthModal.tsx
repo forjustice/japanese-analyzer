@@ -11,7 +11,6 @@ export interface AuthUser {
   email: string;
   username?: string;
   is_verified: boolean;
-  avatar_url?: string;
   created_at: Date;
   last_login_at?: Date;
 }
@@ -473,13 +472,13 @@ export default function AuthModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-auto transition-colors duration-200 max-h-[90vh] overflow-y-auto">
+      <div className="bg-card border border-border rounded-lg shadow-xl max-w-md w-full mx-auto transition-colors duration-200 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* 返回按钮 */}
           {currentMode !== 'login' && (
             <button
               onClick={() => handleModeChange('login')}
-              className="mb-4 flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+              className="mb-4 flex items-center text-muted-foreground hover:text-foreground transition-colors"
               disabled={isLoading}
             >
               <FaArrowLeft className="mr-2" />

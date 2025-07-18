@@ -7,7 +7,6 @@ export interface User {
   username?: string;
   is_verified: boolean;
   is_active: boolean;
-  avatar_url?: string;
   last_login_at?: Date;
   created_at: Date;
   updated_at: Date;
@@ -30,7 +29,6 @@ export interface UserProfile {
   email: string;
   username?: string;
   is_verified: boolean;
-  avatar_url?: string;
   created_at: Date;
   last_login_at?: Date;
 }

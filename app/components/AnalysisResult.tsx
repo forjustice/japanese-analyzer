@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { containsKanji, getPosClass, posChineseMap, speakJapanese, generateFuriganaParts } from '../utils/helpers';
+import { containsKanji, getPosClass, posChineseMap, speakJapanese, speakJapaneseWithTTS, generateFuriganaParts } from '../utils/helpers';
 import { getWordDetails, TokenData, WordDetail } from '../services/api';
 import { FaVolumeUp, FaCopy, FaCheck } from 'react-icons/fa';
 
@@ -13,6 +13,7 @@ interface AnalysisResultProps {
   userApiUrl?: string;
   showFurigana: boolean;
   onShowFuriganaChange: (show: boolean) => void;
+  ttsProvider?: 'system' | 'gemini';
 }
 
 // --- 子组件 ---
@@ -33,13 +34,13 @@ const AnalysisToolbar = ({
 }) => (
   <div className="flex justify-between items-center mb-4">
     <div className="flex items-center gap-2">
-      <h2 className="text-2xl font-semibold text-[--text-primary]">解析结果</h2>
+      <h2 className="text-2xl font-semibold text-foreground">解析结果</h2>
       <button
         onClick={onCopy}
         className={`p-2 rounded-full transition-all duration-200 ${
           isCopied
             ? 'bg-green-500 text-white'
-            : 'bg-[--button-bg] text-[--button-text] hover:bg-[--button-hover-bg] hover:text-[--button-hover-text]'
+            : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
         }`}
         title={isCopied ? "已复制!" : (showFurigana ? "以带注音的HTML格式复制" : "以纯文本格式复制")}
       >
@@ -47,7 +48,7 @@ const AnalysisToolbar = ({
       </button>
     </div>
     <div className="flex items-center">
-      <label htmlFor="furiganaToggle" className="text-sm font-medium mr-2 text-[--text-secondary]">显示假名:</label>
+      <label htmlFor="furiganaToggle" className="text-sm font-medium mr-2 text-foreground">显示假名:</label>
       <label className="inline-flex items-center cursor-pointer">
         <input
           type="checkbox"
@@ -56,7 +57,7 @@ const AnalysisToolbar = ({
           checked={showFurigana}
           onChange={(e) => onShowFuriganaChange(e.target.checked)}
         />
-        <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+        <div className="relative w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-ring/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
       </label>
     </div>
   </div>
@@ -74,7 +75,7 @@ const AnalyzedSentence = ({
   showFurigana: boolean;
   onWordClick: (e: React.MouseEvent<HTMLSpanElement>, token: TokenData) => void;
 }) => (
-  <div id="analyzedSentenceOutput" className="mb-2 p-3 rounded-lg min-h-[70px] text-[--text-primary] bg-[--bg-secondary] whitespace-pre-wrap">
+  <div id="analyzedSentenceOutput" className="mb-2 p-3 rounded-lg min-h-[70px] text-foreground bg-muted whitespace-pre-wrap">
     {tokens.map((token, index) => {
       // 处理换行符
       if (token.pos === '改行' || token.word === '\n') {
@@ -120,31 +121,31 @@ const HtmlCopyModal = ({
 }) => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
     <div
-      className="rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto bg-[--bg-primary] text-[--text-primary]"
+      className="rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Ruby HTML 代码</h3>
-        <button onClick={onClose} className="text-xl text-[--text-tertiary] hover:text-[--text-primary]">×</button>
+        <button onClick={onClose} className="text-xl text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">×</button>
       </div>
       <div className="mb-4">
-        <p className="text-sm mb-2 text-[--text-secondary]">请复制以下HTML代码在支持Ruby标签的编辑器中使用：</p>
+        <p className="text-sm mb-2 text-gray-700 dark:text-gray-300">请复制以下HTML代码在支持Ruby标签的编辑器中使用：</p>
         <textarea
-          className="w-full h-48 p-3 border rounded text-sm font-mono resize-none focus:outline-none focus:ring-2 bg-[--bg-secondary] border-[--border-secondary] text-[--text-primary]"
+          className="w-full h-48 p-3 border rounded text-sm font-mono resize-none focus:outline-none focus:ring-2 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
           value={htmlContent}
           readOnly
           onClick={(e) => e.currentTarget.select()}
         />
       </div>
-      <div className="mb-4 p-3 border rounded border-[--border-secondary] bg-[--bg-secondary]">
-        <p className="text-sm mb-2 text-[--text-secondary]">预览效果：</p>
+      <div className="mb-4 p-3 border rounded border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
+        <p className="text-sm mb-2 text-gray-700 dark:text-gray-300">预览效果：</p>
         <div className="text-base leading-relaxed" dangerouslySetInnerHTML={{ __html: htmlContent }} />
       </div>
       <div className="flex justify-end space-x-3">
         <button onClick={onCopy} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
           复制HTML代码
         </button>
-        <button onClick={onClose} className="px-4 py-2 rounded focus:outline-none focus:ring-2 bg-[--button-bg] text-[--button-text] hover:bg-[--button-hover-bg] hover:text-[--button-hover-text]">
+        <button onClick={onClose} className="px-4 py-2 rounded focus:outline-none focus:ring-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
           关闭
         </button>
       </div>
@@ -160,18 +161,32 @@ const WordDetailModal = ({
   isLoading,
   isVisible,
   onClose,
+  ttsProvider = 'gemini'
 }: {
   wordDetail: WordDetail | null;
   isLoading: boolean;
   isVisible: boolean;
   onClose: () => void;
+  ttsProvider?: 'system' | 'gemini';
 }) => {
   const formatExplanation = (text: string | undefined): { __html: string } => {
     if (!text) return { __html: '' };
     const formattedText = text
+      // 处理md标记符号
+      .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold">$1</strong>') // **粗体**
+      .replace(/\*([^*]+)\*/g, '<em class="italic">$1</em>') // *斜体*
+      .replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-gray-600 px-1 rounded text-sm">$1</code>') // `代码`
+      .replace(/###\s*([^\n]+)/g, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>') // ### 三级标题
+      .replace(/##\s*([^\n]+)/g, '<h2 class="text-xl font-semibold mt-4 mb-2">$1</h2>') // ## 二级标题
+      .replace(/#\s*([^\n]+)/g, '<h1 class="text-2xl font-bold mt-4 mb-2">$1</h1>') // # 一级标题
+      .replace(/^\s*[\-\*\+]\s+(.+)$/gm, '<li class="ml-4">• $1</li>') // - 列表项
+      .replace(/^\s*\d+\.\s+(.+)$/gm, '<li class="ml-4">$1</li>') // 1. 数字列表项
+      // 换行处理
       .replace(/\n/g, '<br />')
-      .replace(/【([^】]+)】/g, '<strong class="text-indigo-600">$1</strong>')
-      .replace(/「([^」]+)」/g, '<strong class="text-indigo-600">$1</strong>')
+      // 日语特殊标记
+      .replace(/【([^】]+)】/g, '<strong class="text-indigo-600 dark:text-indigo-400">$1</strong>')
+      .replace(/「([^」]+)」/g, '<span class="text-blue-600 dark:text-blue-400 font-medium">$1</span>')
+      // 假名注音
       .replace(/([一-龯々〇ヶ]+)（([ぁ-ゖゝゞァ-ヺー]+)）/g, '<ruby>$1<rt>$2</rt></ruby>')
       .replace(/([一-龯々〇ヶ]+)\(([ぁ-ゖゝゞァ-ヺー]+)\)/g, '<ruby>$1<rt>$2</rt></ruby>')
       .replace(/([一-龯々〇ヶ]+)（([ァ-ヺー]+)）/g, '<ruby>$1<rt>$2</rt></ruby>')
@@ -179,9 +194,13 @@ const WordDetailModal = ({
     return { __html: formattedText };
   };
 
-  const handleWordSpeak = (word: string) => {
+  const handleWordSpeak = async (word: string) => {
     try {
-      speakJapanese(word);
+      if (ttsProvider === 'gemini') {
+        await speakJapaneseWithTTS(word);
+      } else {
+        speakJapanese(word);
+      }
     } catch (error) {
       console.error('朗读失败:', error);
     }
@@ -229,7 +248,7 @@ const WordDetailModal = ({
             </div>
           ) : wordDetail ? (
             <>
-              <h3 className="text-xl font-semibold text-[#007AFF] dark:text-blue-400 mb-4">词汇详解</h3>
+              <h3 className="text-xl font-semibold text-blue-600 dark:text-blue-400 mb-4">词汇详解</h3>
               <div className="space-y-3">
                 <p className="flex items-center">
                   <strong className="w-20 text-sm text-gray-700 dark:text-gray-300">原文:</strong>
@@ -276,6 +295,50 @@ const WordDetailModal = ({
                   <span className="text-lg text-green-700 dark:text-green-400 font-medium">{wordDetail.chineseTranslation}</span>
                 </p>
                 
+                {wordDetail.grammar && (
+                  <div>
+                    <strong className="text-sm text-gray-700 dark:text-gray-300">日语文法:</strong>
+                    <div 
+                      className="mt-2 text-gray-700 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md text-base leading-relaxed border-l-4 border-blue-400" 
+                      dangerouslySetInnerHTML={formatExplanation(wordDetail.grammar)} 
+                    />
+                  </div>
+                )}
+                
+                {wordDetail.examples && wordDetail.examples.length > 0 && (
+                  <div>
+                    <strong className="text-sm text-gray-700 dark:text-gray-300">例句:</strong>
+                    <div className="mt-2 space-y-3">
+                      {wordDetail.examples.map((example, index) => (
+                        <div key={index} className="bg-green-50 dark:bg-green-900/20 p-3 rounded-md border-l-4 border-green-400">
+                          <div className="mb-2">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">日语:</span>
+                            <div 
+                              className="mt-1 text-lg leading-relaxed text-gray-800 dark:text-gray-200" 
+                              dangerouslySetInnerHTML={{ __html: example.japanese }}
+                            />
+                            <button 
+                              className="ml-2 p-1 text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors inline-flex" 
+                              title="朗读例句" 
+                              onClick={() => {
+                                // 移除HTML标签用于朗读
+                                const textOnly = example.japanese.replace(/<[^>]*>/g, '');
+                                handleWordSpeak(textOnly);
+                              }}
+                            >
+                              <FaVolumeUp />
+                            </button>
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">中文:</span>
+                            <div className="mt-1 text-gray-700 dark:text-gray-300">{example.chinese}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 <div>
                   <strong className="text-sm text-gray-700 dark:text-gray-300">解释:</strong>
                   <div 
@@ -301,7 +364,8 @@ export default function AnalysisResult({
   userApiKey,
   userApiUrl,
   showFurigana,
-  onShowFuriganaChange
+  onShowFuriganaChange,
+  ttsProvider = 'gemini'
 }: AnalysisResultProps) {
   const [wordDetail, setWordDetail] = useState<WordDetail | null>(null);
   const [activeWordToken, setActiveWordToken] = useState<HTMLElement | null>(null);
@@ -453,7 +517,7 @@ export default function AnalysisResult({
         onWordClick={handleWordClick}
       />
       
-      <p className="text-sm italic mt-3 text-[--text-tertiary]">点击词汇查看详细释义。悬停词汇可查看词性。</p>
+      <p className="text-sm italic mt-3 text-gray-600 dark:text-gray-400">点击词汇查看详细释义。悬停词汇可查看词性。</p>
       
       {/* 底部弹出的词汇详解模态框 */}
       <WordDetailModal
@@ -461,6 +525,7 @@ export default function AnalysisResult({
         isLoading={isLoading}
         isVisible={showWordDetailModal}
         onClose={handleCloseWordDetail}
+        ttsProvider={ttsProvider}
       />
       
       {showHtmlModal && (

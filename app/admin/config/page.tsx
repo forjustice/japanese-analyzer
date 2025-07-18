@@ -205,7 +205,7 @@ export default function ConfigManagement() {
                           <Input
                             value={item.value}
                             readOnly
-                            className="bg-gray-50"
+                            className="bg-muted"
                           />
                           <Button
                             variant="outline"

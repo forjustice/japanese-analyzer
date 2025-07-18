@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { RefreshCw, Home, Users, Key, Settings, TrendingUp } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
+import { ThemeProvider } from '../contexts/ThemeContext';
 
 const navItems = [
   { href: '/admin', label: '仪表板', icon: Home },
@@ -53,45 +54,51 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   if (isLoginPage) {
     return (
-      <div className="min-h-screen bg-background">
-        <Toaster richColors />
-        {children}
-      </div>
+      <ThemeProvider>
+        <div className="min-h-screen bg-background">
+          <Toaster richColors />
+          {children}
+        </div>
+      </ThemeProvider>
     );
   }
 
   if (!isMounted) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">加载中...</p>
+      <ThemeProvider>
+        <div className="flex items-center justify-center min-h-screen bg-background">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">加载中...</p>
+          </div>
         </div>
-      </div>
+      </ThemeProvider>
     );
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <Toaster richColors />
-      <Sidebar 
-        isCollapsed={isSidebarCollapsed}
-        onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        onLogout={handleLogout}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          isMobileMenuOpen={isMobileMenuOpen}
-          onMobileMenuOpenChange={setIsMobileMenuOpen}
+    <ThemeProvider>
+      <div className="flex h-screen bg-background">
+        <Toaster richColors />
+        <Sidebar 
+          isCollapsed={isSidebarCollapsed}
+          onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           onLogout={handleLogout}
-          pageTitle={pageTitle}
         />
-        <main className="flex-1 overflow-y-auto bg-muted/50">
-          <div className="container mx-auto p-6">
-            {children}
-          </div>
-        </main>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header 
+            isMobileMenuOpen={isMobileMenuOpen}
+            onMobileMenuOpenChange={setIsMobileMenuOpen}
+            onLogout={handleLogout}
+            pageTitle={pageTitle}
+          />
+          <main className="flex-1 overflow-y-auto bg-muted/50">
+            <div className="container mx-auto p-6">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ThemeProvider>
   );
 }

@@ -53,7 +53,7 @@ export default function ShopModal({ isOpen, onClose }: ShopModalProps) {
   const handlePurchase = async (productId: number) => {
     setPurchaseLoading(productId);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       if (!token) {
         alert('请先登录');
         return;

@@ -5,11 +5,15 @@ import { extractTextFromImage, extractTextFromFile } from '../services/api';
 import { getJapaneseTtsAudioUrl, speakJapanese } from '../utils/helpers';
 import { FaCamera, FaVolumeUp, FaChevronDown, FaDesktop, FaRobot, FaInfoCircle, FaFile } from 'react-icons/fa';
 
-// 添加内联样式
+// 添加内联样式 - 支持深色模式
 const placeholderStyle = `
   #japaneseInput::placeholder {
-    color: rgba(0, 0, 0, 0.4) !important;
-    opacity: 0.6 !important;
+    color: rgb(107, 114, 128) !important;
+    opacity: 0.7 !important;
+  }
+  .dark #japaneseInput::placeholder {
+    color: rgb(156, 163, 175) !important;
+    opacity: 0.7 !important;
   }
 `;
 
@@ -166,13 +170,13 @@ export default function InputSection({
     
     if (!isValidType) {
       setUploadStatus(`不支持的文件格式。文件类型: ${fileType}，文件名: ${fileName}`);
-      setUploadStatusClass('mt-2 text-sm text-red-600 dark:text-red-400');
+      setUploadStatusClass('mt-2 text-sm text-destructive');
       return;
     }
 
     setIsFileUploading(true);
     setUploadStatus('正在解析文档并提取日语文字...');
-    setUploadStatusClass('mt-2 text-sm text-gray-600 dark:text-gray-400');
+    setUploadStatusClass('mt-2 text-sm text-muted-foreground');
 
     try {
       // 极简提示词，避免AI过度处理
@@ -192,16 +196,16 @@ export default function InputSection({
       
       if (extractedText.includes('未找到日文内容')) {
         setUploadStatus('文档中未找到日文内容。');
-        setUploadStatusClass('mt-2 text-sm text-yellow-600 dark:text-yellow-400');
+        setUploadStatusClass('mt-2 text-sm text-yellow-600');
       } else {
         setUploadStatus('文档解析成功！请确认后点击"解析句子"。');
-        setUploadStatusClass('mt-2 text-sm text-green-600 dark:text-green-400');
+        setUploadStatusClass('mt-2 text-sm text-green-600');
       }
       setIsFileUploading(false);
     } catch (error) {
       console.error('Error during document text extraction:', error);
       setUploadStatus(`解析时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`);
-      setUploadStatusClass('mt-2 text-sm text-red-600 dark:text-red-400');
+      setUploadStatusClass('mt-2 text-sm text-destructive');
       setIsFileUploading(false);
     }
   };
@@ -210,25 +214,25 @@ export default function InputSection({
   const processImageFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setUploadStatus('请上传图片文件！');
-      setUploadStatusClass('mt-2 text-sm text-red-600 dark:text-red-400');
+      setUploadStatusClass('mt-2 text-sm text-destructive');
       return;
     }
 
     setIsImageUploading(true);
     setUploadStatus('正在上传并识别图片中的文字...');
-    setUploadStatusClass('mt-2 text-sm text-gray-600 dark:text-gray-400');
+    setUploadStatusClass('mt-2 text-sm text-muted-foreground');
 
     try {
       // 图片上传总是使用直接处理，不使用流式响应
       const extractedText = await extractTextFromImage(file);
       setInputText(extractedText); 
       setUploadStatus('文字提取成功！请确认后点击"解析句子"。');
-      setUploadStatusClass('mt-2 text-sm text-green-600 dark:text-green-400');
+      setUploadStatusClass('mt-2 text-sm text-green-600');
       setIsImageUploading(false);
     } catch (error) {
       console.error('Error during image text extraction:', error);
       setUploadStatus(`提取时发生错误: ${error instanceof Error ? error.message : '未知错误'}。`);
-      setUploadStatusClass('mt-2 text-sm text-red-600 dark:text-red-400');
+      setUploadStatusClass('mt-2 text-sm text-destructive');
       setIsImageUploading(false);
     }
   };
@@ -273,7 +277,7 @@ export default function InputSection({
         const file = item.getAsFile();
         if (file) {
           setUploadStatus('检测到粘贴的图片，正在识别...');
-          setUploadStatusClass('mt-2 text-sm text-blue-600 dark:text-blue-400');
+          setUploadStatusClass('mt-2 text-sm text-blue-600');
           await processImageFile(file);
         }
         break;
@@ -335,11 +339,11 @@ export default function InputSection({
   return (
     <div className="premium-card">
       <style dangerouslySetInnerHTML={{ __html: placeholderStyle }} />
-      <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-3 sm:mb-4">输入日语句子</h2>
+      <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-3 sm:mb-4">输入日语句子</h2>
       <div className="relative">
         <textarea 
           id="japaneseInput" 
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#007AFF] focus:border-[#007AFF] transition duration-150 ease-in-out resize-none japanese-text" 
+          className="w-full p-3 border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out resize-none japanese-text bg-background text-foreground placeholder:text-muted-foreground" 
           rows={4} 
           placeholder="例：今日はいい天気ですね。或上传图片/PDF/Word文档提取文字，也可直接粘贴图片。"
           value={inputText}
@@ -347,8 +351,6 @@ export default function InputSection({
           onPaste={handlePaste}
           style={{ 
             fontSize: '16px', // 防止移动设备缩放
-            WebkitTextFillColor: 'black', // Safari特定修复
-            color: 'black',
             fontFamily: "'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif"
           }}
           autoCapitalize="none"
@@ -358,7 +360,7 @@ export default function InputSection({
         ></textarea>
         {inputText.trim() !== '' && (
           <button 
-            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 focus:outline-none"
+            className="absolute top-2 right-2 text-muted-foreground hover:text-foreground focus:outline-none"
             onClick={() => setInputText('')}
             title="清空内容"
           >
@@ -439,41 +441,34 @@ export default function InputSection({
             
             {/* TTS选择下拉菜单 */}
             {showTtsDropdown && (
-              <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg z-10 p-3 w-72" 
-                   style={{
-                     backgroundColor: 'var(--bg-primary)',
-                     border: '1px solid var(--border-secondary)',
-                     color: 'var(--text-primary)'
-                   }}>
+              <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg z-50 p-3 w-72 bg-card border border-border text-card-foreground">
                 {/* TTS提供商选择 */}
                 <div className="mb-3">
-                  <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>语音合成方式</label>
+                  <label className="block text-xs font-medium mb-2 text-muted-foreground">语音合成方式</label>
                   <div className="space-y-1">
                     <button
-                      className="w-full px-3 py-2 text-left text-sm rounded-md transition-colors border"
-                      style={{
-                        backgroundColor: ttsProvider === 'system' ? 'var(--text-link)' : 'var(--bg-secondary)',
-                        color: ttsProvider === 'system' ? 'white' : 'var(--text-primary)',
-                        borderColor: ttsProvider === 'system' ? 'var(--text-link)' : 'var(--border-secondary)'
-                      }}
+                      className={`w-full px-3 py-2 text-left text-sm rounded-md transition-colors border ${
+                        ttsProvider === 'system' 
+                          ? 'bg-primary text-primary-foreground border-primary' 
+                          : 'bg-muted text-muted-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                      }`}
                       onClick={() => handleTtsProviderSelect('system')}
                     >
                       <FaDesktop className="mr-2 inline" />
                       系统 TTS
-                      <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>浏览器内置，速度快</div>
+                      <div className={`text-xs mt-1 ${ttsProvider === 'system' ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>浏览器内置，速度快</div>
                     </button>
                     <button
-                      className="w-full px-3 py-2 text-left text-sm rounded-md transition-colors border"
-                      style={{
-                        backgroundColor: ttsProvider === 'gemini' ? 'var(--text-link)' : 'var(--bg-secondary)',
-                        color: ttsProvider === 'gemini' ? 'white' : 'var(--text-primary)',
-                        borderColor: ttsProvider === 'gemini' ? 'var(--text-link)' : 'var(--border-secondary)'
-                      }}
+                      className={`w-full px-3 py-2 text-left text-sm rounded-md transition-colors border ${
+                        ttsProvider === 'gemini' 
+                          ? 'bg-primary text-primary-foreground border-primary' 
+                          : 'bg-muted text-muted-foreground border-border hover:bg-accent hover:text-accent-foreground'
+                      }`}
                       onClick={() => handleTtsProviderSelect('gemini')}
                     >
                       <FaRobot className="mr-2 inline" />
                       Gemini TTS
-                      <div className="text-xs mt-1" style={{ color: ttsProvider === 'gemini' ? 'rgba(255,255,255,0.8)' : 'var(--text-tertiary)' }}>AI语音，音质自然，速度慢</div>
+                      <div className={`text-xs mt-1 ${ttsProvider === 'gemini' ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>AI语音，音质自然，速度慢</div>
                     </button>
                   </div>
                 </div>
@@ -483,20 +478,16 @@ export default function InputSection({
                   <>
                     {/* 语音选择 */}
                     <div className="mb-3">
-                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>语音选择</label>
+                      <label className="block text-xs font-medium mb-2 text-muted-foreground">语音选择</label>
                       <select
                         value={selectedVoice}
                         onChange={(e) => handleVoiceChange(e.target.value)}
-                        className="w-full px-2 py-1 text-sm border rounded-md focus:ring-2 appearance-none"
+                        className="w-full px-2 py-1 pr-8 text-sm border rounded-md focus:ring-2 focus:ring-ring focus:border-ring appearance-none bg-background border-input text-foreground"
                         style={{
-                          backgroundColor: 'var(--bg-primary)',
-                          borderColor: 'var(--border-secondary)',
-                          color: 'var(--text-primary)',
                           backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
                           backgroundPosition: 'right 0.5rem center',
                           backgroundRepeat: 'no-repeat',
-                          backgroundSize: '1.5em 1.5em',
-                          paddingRight: '2.5rem'
+                          backgroundSize: '1.5em 1.5em'
                         }}
                       >
                         {TTS_VOICES.map((voice) => (
@@ -509,20 +500,16 @@ export default function InputSection({
 
                     {/* 语音风格 */}
                     <div className="mb-2">
-                      <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>语音风格</label>
+                      <label className="block text-xs font-medium mb-2 text-muted-foreground">语音风格</label>
                       <select
                         value={selectedStyle}
                         onChange={(e) => handleStyleChange(e.target.value)}
-                        className="w-full px-2 py-1 text-sm border rounded-md focus:ring-2 appearance-none"
+                        className="w-full px-2 py-1 pr-8 text-sm border rounded-md focus:ring-2 focus:ring-ring focus:border-ring appearance-none bg-background border-input text-foreground"
                         style={{
-                          backgroundColor: 'var(--bg-primary)',
-                          borderColor: 'var(--border-secondary)',
-                          color: 'var(--text-primary)',
                           backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
                           backgroundPosition: 'right 0.5rem center',
                           backgroundRepeat: 'no-repeat',
-                          backgroundSize: '1.5em 1.5em',
-                          paddingRight: '2.5rem'
+                          backgroundSize: '1.5em 1.5em'
                         }}
                       >
                         {TTS_STYLES.map((style) => (
@@ -567,16 +554,16 @@ export default function InputSection({
       )}
 
       {isSpeaking && ttsProvider === 'gemini' && (
-        <div className="mt-3 p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded-r-lg">
           <div className="flex items-start">
             <div className="flex-shrink-0">
               <FaInfoCircle className="text-blue-500 mt-0.5" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-blue-700">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
                 <strong>正在进行高质量语音合成，请稍候...</strong>
               </p>
-              <p className="text-xs text-blue-600 mt-1">
+              <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
                 • 使用 Gemini TTS 技术，音质更自然<br/>
                 • 当前文本预计需要：{getEstimatedTime(inputText)}<br/>
                 • 请保持页面打开，不要离开或刷新

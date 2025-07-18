@@ -127,7 +127,7 @@ export function Sidebar({ isCollapsed, isMobile = false, onLogout, onToggle, onL
             variant="ghost"
             size="sm"
             onClick={onLogout}
-            className="w-full justify-start gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
           >
             <LogOut className="w-4 h-4" />
             {(!isCollapsed || isMobile) && <span>退出登录</span>}

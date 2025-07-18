@@ -4,9 +4,10 @@ import Stripe from 'stripe';
 import jwt from 'jsonwebtoken';
 
 interface UserPayload {
-  id: number;
+  id?: number;
+  userId?: number;
   email: string;
-  username: string;
+  username?: string;
 }
 
 async function getConnection() {
@@ -111,24 +112,67 @@ export async function POST(req: NextRequest) {
 
     const product = products[0];
 
+    // 调试：检查product对象和用户信息
+    console.log('Product data:', product);
+    console.log('User data:', user);
+    console.log('stripeCurrency:', stripeCurrency);
+    console.log('orderType:', orderType);
+
     // 创建订单
     const orderNo = generateOrderNo();
+    
+    // 获取用户ID（支持两种字段名）
+    const userId = user.id || user.userId;
+    
+    // 验证必需的字段
+    if (!userId) {
+      console.error('用户ID验证失败:', { user, hasId: !!user.id, hasUserId: !!user.userId });
+      return NextResponse.json(
+        { error: '用户ID无效' },
+        { status: 400 }
+      );
+    }
+    
+    if (!product.id) {
+      return NextResponse.json(
+        { error: '商品ID无效' },
+        { status: 400 }
+      );
+    }
+    
+    // 准备插入参数并验证 - 确保没有undefined值
+    const insertParams = [
+      orderNo,
+      userId,
+      product.id,
+      product.name || `商品${product.id}`,
+      product.price || 0,
+      product.duration_days || 30,
+      product.token_amount || 0,
+      stripeCurrency,
+      orderType,
+      'pending'
+    ];
+    
+    console.log('Insert parameters:', insertParams);
+    
+    // 检查是否有undefined值
+    const undefinedParams = insertParams.map((param, index) => ({ index, value: param, isUndefined: param === undefined }))
+                                       .filter(item => item.isUndefined);
+    
+    if (undefinedParams.length > 0) {
+      console.error('Found undefined parameters:', undefinedParams);
+      return NextResponse.json(
+        { error: `缺少必要参数: ${undefinedParams.map(p => p.index).join(', ')}` },
+        { status: 400 }
+      );
+    }
+    
     const [orderResult] = await connection.execute(
       `INSERT INTO orders (order_no, user_id, product_id, product_name, product_price, 
        duration_days, token_amount, currency, order_type, payment_status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) `,
-      [
-        orderNo,
-        user.id,
-        product.id,
-        product.name,
-        product.price,
-        product.duration_days,
-        product.token_amount,
-        stripeCurrency,
-        orderType,
-        'pending'
-      ]
+      insertParams
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -154,12 +198,12 @@ export async function POST(req: NextRequest) {
         },
       ],
       mode: 'payment',
-      success_url: `${req.headers.get('origin')}${stripeSuccessUrl}?order_no=${orderNo}`,
-      cancel_url: `${req.headers.get('origin')}${stripeCancelUrl}?order_no=${orderNo}`,
+      success_url: `${req.headers.get('origin') || 'http://localhost:3000'}${stripeSuccessUrl}?order_no=${orderNo}`,
+      cancel_url: `${req.headers.get('origin') || 'http://localhost:3000'}${stripeCancelUrl}?order_no=${orderNo}`,
       metadata: {
         order_id: orderId.toString(),
         order_no: orderNo,
-        user_id: user.id.toString(),
+        user_id: userId.toString(),
       },
     });
 
@@ -178,7 +222,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('创建订单失败:', error);
     return NextResponse.json(
-      { error: '创建订单失败' },
+      { error: '创建订单失败，请稍后重试' },
       { status: 500 }
     );
   } finally {

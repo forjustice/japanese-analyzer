@@ -14,6 +14,11 @@ export interface WordDetail {
   furigana?: string;
   romaji?: string;
   dictionaryForm?: string;
+  grammar?: string;
+  examples?: Array<{
+    japanese: string;
+    chinese: string;
+  }>;
   explanation: string;
 }
 
@@ -173,7 +178,7 @@ export async function getWordDetails(
   const authToken = localStorage.getItem('authToken') || '';
   const headers = getHeaders(authToken);
 
-  const prompt = `作为专业的日语词典，请详细解释单词"${word}"${sentence ? `在句子"${sentence}"中` : ''}的含义、词性、发音和用法。
+  const prompt = `作为专业的日语词典，请详细解释单词"${word}"${sentence ? `在句子"${sentence}"中` : ''}的含义、词性、发音、文法特征和用法。
 
 请以JSON格式输出一个对象，包含以下字段：
 - originalWord: 原始单词
@@ -182,7 +187,9 @@ export async function getWordDetails(
 - furigana: 假名读音
 - romaji: 罗马音
 - dictionaryForm: 词典形式（如果与原词不同）
-- explanation: 详细解释和用法示例
+- grammar: 详细的日语文法说明（包括活用形、敬语形式、语法功能等）
+- examples: 包含该词的例句数组，每个例句包含japanese（日语原文）和chinese（中文翻译）
+- explanation: 详细解释和用法说明
 
 示例格式：
 {
@@ -192,8 +199,20 @@ export async function getWordDetails(
   "furigana": "${furigana || ''}",
   "romaji": "${romaji || ''}",
   "dictionaryForm": "词典形式",
-  "explanation": "详细解释和用法"
+  "grammar": "详细的日语文法说明，包括活用规则、语法功能、敬语形式等",
+  "examples": [
+    {
+      "japanese": "例句的日语原文（日语汉字上方需要假名标注）",
+      "chinese": "例句的中文翻译"
+    }
+  ],
+  "explanation": "详细解释和用法说明"
 }
+
+注意：
+1. examples中的japanese字段，请将日语汉字用ruby标签标注假名，格式为：<ruby>漢字<rt>かんじ</rt></ruby>
+2. grammar字段要详细说明该词的文法特征，如动词的活用形、形容词的变化规则等
+3. 提供2-3个实用的例句
 
 请直接输出JSON，不要添加其他说明。`;
 

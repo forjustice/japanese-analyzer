@@ -76,7 +76,6 @@ interface User {
   totalTokenUsage: number;
   totalRequests: number;
   status: 'active' | 'suspended' | 'pending';
-  avatar_url?: string;
   role: 'user' | 'admin' | 'super_admin';
 }
 
@@ -123,7 +122,6 @@ export default function UserManagement() {
   const [editFormData, setEditFormData] = useState({
     username: '',
     email: '',
-    avatar_url: '',
     is_verified: false
   });
   const [passwordFormData, setPasswordFormData] = useState({
@@ -188,7 +186,6 @@ export default function UserManagement() {
         setEditFormData({
           username: user.username,
           email: user.email,
-          avatar_url: user.avatar_url || '',
           is_verified: user.isVerified
         });
         setShowEditModal(true);
@@ -472,7 +469,7 @@ export default function UserManagement() {
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover border border-border shadow-md z-[60]">
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="suspended">Suspended</SelectItem>
@@ -487,7 +484,7 @@ export default function UserManagement() {
                 <SelectTrigger className="w-36">
                   <SelectValue placeholder="Verification" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover border border-border shadow-md z-[60]">
                   <SelectItem value="all">All Verification</SelectItem>
                   <SelectItem value="verified">Verified</SelectItem>
                   <SelectItem value="unverified">Unverified</SelectItem>
@@ -572,7 +569,7 @@ export default function UserManagement() {
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="bg-popover border border-border shadow-md z-[60]">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => handleAction('view', user.id)}>
                             <Eye className="mr-2 h-4 w-4" /> View
@@ -588,7 +585,7 @@ export default function UserManagement() {
                             <Key className="mr-2 h-4 w-4" /> Reset Password
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600" onClick={() => handleAction('delete', user.id)}>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleAction('delete', user.id)}>
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -636,7 +633,7 @@ export default function UserManagement() {
 
       {/* Modals */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent>
+        <DialogContent className="bg-background border border-border shadow-lg">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>Modify user&apos;s basic information.</DialogDescription>
@@ -663,7 +660,7 @@ export default function UserManagement() {
       </Dialog>
 
       <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-background border border-border shadow-lg">
           <DialogHeader>
             <DialogTitle>User Details</DialogTitle>
             <DialogDescription>{userDetails?.username}</DialogDescription>
@@ -680,7 +677,7 @@ export default function UserManagement() {
       </Dialog>
 
       <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
-        <DialogContent>
+        <DialogContent className="bg-background border border-border shadow-lg">
           <DialogHeader>
             <DialogTitle>Reset Password</DialogTitle>
             <DialogDescription>Set a new password for {selectedUser?.username}.</DialogDescription>
@@ -703,7 +700,7 @@ export default function UserManagement() {
       </Dialog>
 
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-background border border-border shadow-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>

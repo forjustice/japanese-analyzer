@@ -61,7 +61,7 @@ const StatCard = ({ title, value, icon: Icon, change, trend }: { title: string, 
     <CardContent>
       <div className="text-2xl font-bold">{value}</div>
       {change && (
-        <p className={`text-xs text-muted-foreground ${trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+        <p className={`text-xs text-muted-foreground ${trend === 'up' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
           {change} vs last month
         </p>
       )}
@@ -88,13 +88,13 @@ const QuickLinkCard: React.FC<QuickLinkProps> = ({ href, icon: Icon, title, desc
 const ActivityIcon = ({ type }: { type: RecentActivity['type'] }) => {
   switch (type) {
     case 'new_user':
-      return <UserPlus className="w-4 h-4 text-green-500" />;
+      return <UserPlus className="w-4 h-4 text-green-600 dark:text-green-400" />;
     case 'api_key_update':
-      return <Key className="w-4 h-4 text-blue-500" />;
+      return <Key className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
     case 'config_update':
-      return <FileCog className="w-4 h-4 text-yellow-500" />;
+      return <FileCog className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />;
     default:
-      return <Activity className="w-4 h-4 text-gray-500" />;
+      return <Activity className="w-4 h-4 text-muted-foreground" />;
   }
 };
 

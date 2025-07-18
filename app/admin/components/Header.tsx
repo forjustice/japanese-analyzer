@@ -5,6 +5,7 @@ import { Button } from '@/app/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/app/components/ui/sheet';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Sidebar } from './Sidebar';
+import { ThemeToggle } from './ThemeToggle';
 
 interface HeaderProps {
   isMobileMenuOpen: boolean;
@@ -25,7 +26,7 @@ export function Header({ isMobileMenuOpen, onMobileMenuOpenChange, onLogout, pag
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
+            <SheetContent side="left" className="w-64 p-0 bg-background border-border">
               <Sidebar 
                 isCollapsed={false} 
                 isMobile={true} 
@@ -41,6 +42,7 @@ export function Header({ isMobileMenuOpen, onMobileMenuOpenChange, onLogout, pag
         </div>
         
         <div className="flex items-center gap-4">
+          <ThemeToggle />
           <Card className="px-3 py-1 shadow-none">
             <CardContent className="p-0">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">

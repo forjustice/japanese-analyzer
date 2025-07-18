@@ -5,7 +5,6 @@ export interface AuthUser {
   email: string;
   username?: string;
   is_verified: boolean;
-  avatar_url?: string;
   created_at: Date;
   last_login_at?: Date;
 }

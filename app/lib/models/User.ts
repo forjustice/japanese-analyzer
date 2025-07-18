@@ -90,18 +90,13 @@ export class UserModel {
   }
 
   // 更新用户信息
-  static async updateProfile(userId: number, updates: { username?: string; avatar_url?: string }): Promise<boolean> {
+  static async updateProfile(userId: number, updates: { username?: string }): Promise<boolean> {
     const fields = [];
     const values = [];
 
     if (updates.username !== undefined) {
       fields.push('username = ?');
       values.push(updates.username);
-    }
-
-    if (updates.avatar_url !== undefined) {
-      fields.push('avatar_url = ?');
-      values.push(updates.avatar_url);
     }
 
     if (fields.length === 0) {
@@ -136,7 +131,7 @@ export class UserModel {
   // 获取用户公开资料
   static async getProfile(userId: number): Promise<UserProfile | null> {
     const sql = `
-      SELECT id, email, username, is_verified, avatar_url, created_at, last_login_at
+      SELECT id, email, username, is_verified, created_at, last_login_at
       FROM users 
       WHERE id = ? AND is_active = TRUE
     `;

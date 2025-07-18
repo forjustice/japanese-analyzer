@@ -126,7 +126,6 @@ export class AuthUtils {
       email: userData.email,
       username: userData.username,
       is_verified: userData.is_verified,
-      avatar_url: userData.avatar_url,
       created_at: userData.created_at,
       last_login_at: userData.last_login_at
     };

@@ -73,7 +73,7 @@ interface AnalyticsData {
 }
 
 const StatCard = ({ title, value, icon: Icon, change, trend }: { title: string, value: string | number, icon: React.ElementType, change?: string, trend?: 'up' | 'down' | 'neutral' }) => {
-  const trendColor = trend === 'up' ? 'text-green-500' : trend === 'down' ? 'text-red-500' : '';
+  const trendColor = trend === 'up' ? 'text-green-600 dark:text-green-400' : trend === 'down' ? 'text-red-600 dark:text-red-400' : '';
   const trendSymbol = trend === 'up' ? '+' : '';
 
   return (
@@ -194,7 +194,7 @@ export default function AnalyticsPage() {
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select time range" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-popover border border-border shadow-md z-[60]">
               <SelectItem value="7d">Last 7 Days</SelectItem>
               <SelectItem value="30d">Last 30 Days</SelectItem>
               <SelectItem value="90d">Last 90 Days</SelectItem>
@@ -240,10 +240,10 @@ export default function AnalyticsPage() {
               <CardDescription>Breakdown of usage statistics by service.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <ServiceCard icon={MessageSquare} title="Text Analysis" requests={data.serviceStats.analyze.requests} tokens={data.serviceStats.analyze.tokens} color="bg-purple-500" />
-              <ServiceCard icon={FileText} title="Translation" requests={data.serviceStats.translate.requests} tokens={data.serviceStats.translate.tokens} color="bg-blue-500" />
-              <ServiceCard icon={Volume2} title="TTS" requests={data.serviceStats.tts.requests} tokens={data.serviceStats.tts.tokens} color="bg-green-500" />
-              <ServiceCard icon={Image} title="OCR" requests={data.serviceStats.ocr.requests} tokens={data.serviceStats.ocr.tokens} color="bg-orange-500" />
+              <ServiceCard icon={MessageSquare} title="Text Analysis" requests={data.serviceStats.analyze.requests} tokens={data.serviceStats.analyze.tokens} color="bg-purple-500 dark:bg-purple-600" />
+              <ServiceCard icon={FileText} title="Translation" requests={data.serviceStats.translate.requests} tokens={data.serviceStats.translate.tokens} color="bg-blue-500 dark:bg-blue-600" />
+              <ServiceCard icon={Volume2} title="TTS" requests={data.serviceStats.tts.requests} tokens={data.serviceStats.tts.tokens} color="bg-green-500 dark:bg-green-600" />
+              <ServiceCard icon={Image} title="OCR" requests={data.serviceStats.ocr.requests} tokens={data.serviceStats.ocr.tokens} color="bg-orange-500 dark:bg-orange-600" />
             </CardContent>
           </Card>
 

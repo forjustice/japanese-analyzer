@@ -238,10 +238,10 @@ export default function ProductManagement() {
       )}
       
       {success && (
-        <Alert variant="default" className="mb-4 border-green-200 bg-green-50">
-          <Check className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">成功</AlertTitle>
-          <AlertDescription className="text-green-700">{success}</AlertDescription>
+        <Alert variant="default" className="mb-4 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
+          <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <AlertTitle className="text-green-800 dark:text-green-200">成功</AlertTitle>
+          <AlertDescription className="text-green-700 dark:text-green-300">{success}</AlertDescription>
         </Alert>
       )}
 
@@ -269,26 +269,26 @@ export default function ProductManagement() {
                     <TableCell>
                       <div>
                         <div className="font-medium">{product.name}</div>
-                        <div className="text-sm text-gray-500 truncate max-w-xs">
+                        <div className="text-sm text-muted-foreground truncate max-w-xs">
                           {product.description}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
-                        <DollarSign className="w-4 h-4 mr-1 text-green-600" />
+                        <DollarSign className="w-4 h-4 mr-1 text-green-600 dark:text-green-400" />
                         {formatPrice(product.price)}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
-                        <Clock className="w-4 h-4 mr-1 text-blue-600" />
+                        <Clock className="w-4 h-4 mr-1 text-blue-600 dark:text-blue-400" />
                         {product.duration_days} 天
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
-                        <Coins className="w-4 h-4 mr-1 text-orange-600" />
+                        <Coins className="w-4 h-4 mr-1 text-orange-600 dark:text-orange-400" />
                         {formatTokenAmount(product.token_amount)}
                       </div>
                     </TableCell>
@@ -320,7 +320,7 @@ export default function ProductManagement() {
                 ))}
                 {products.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       暂无商品数据
                     </TableCell>
                   </TableRow>
@@ -333,7 +333,7 @@ export default function ProductManagement() {
 
       {/* 编辑/新增对话框 */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-background border border-border shadow-lg">
           <DialogHeader>
             <DialogTitle>{isEditing ? '编辑商品' : '新增商品'}</DialogTitle>
             <DialogDescription>
@@ -459,7 +459,7 @@ export default function ProductManagement() {
 
       {/* 删除确认对话框 */}
       <Dialog open={deleteConfirm.open} onOpenChange={(open) => setDeleteConfirm({ open, product: null })}>
-        <DialogContent>
+        <DialogContent className="bg-background border border-border shadow-lg">
           <DialogHeader>
             <DialogTitle>确认删除</DialogTitle>
             <DialogDescription>
