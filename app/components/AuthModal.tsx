@@ -439,7 +439,7 @@ export default function AuthModal({
         return {
           title: '用户登录',
           description: '欢迎回来，请登录你的账户',
-          icon: <FaUser className="text-blue-600 dark:text-blue-400 text-2xl" />
+          icon: <FaUser className="text-primary text-2xl" />
         };
       case 'register':
         return {
@@ -451,19 +451,19 @@ export default function AuthModal({
         return {
           title: '邮箱验证',
           description: '请输入发送到你邮箱的验证码',
-          icon: <FaEnvelope className="text-blue-600 dark:text-blue-400 text-2xl" />
+          icon: <FaEnvelope className="text-primary text-2xl" />
         };
       case 'reset':
         return {
           title: '重置密码',
           description: isCodeVerified ? '设置新密码' : (successMessage ? '输入验证码进行验证' : '找回你的密码'),
-          icon: <FaLock className="text-orange-600 dark:text-orange-400 text-2xl" />
+          icon: <FaLock className="text-primary text-2xl" />
         };
       default:
         return {
           title: '认证',
           description: '',
-          icon: <FaLock className="text-blue-600 dark:text-blue-400 text-2xl" />
+          icon: <FaLock className="text-primary text-2xl" />
         };
     }
   };
@@ -488,7 +488,7 @@ export default function AuthModal({
 
           {/* 标题区域 */}
           <div className="text-center mb-6">
-            <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4 transition-colors duration-200">
+            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 transition-colors duration-200">
               {modeInfo.icon}
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-2 transition-colors duration-200">
@@ -750,7 +750,7 @@ export default function AuthModal({
                   已有账户？
                   <button
                     onClick={() => handleModeChange('login')}
-                    className="ml-1 text-blue-600 dark:text-blue-400 hover:underline"
+                    className="ml-1 text-primary hover:underline"
                     disabled={isLoading}
                   >
                     立即登录
