@@ -633,7 +633,7 @@ export default function UserManagement() {
 
       {/* Modals */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="bg-background border border-border shadow-lg">
+        <DialogContent className="admin-dialog-content">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>Modify user&apos;s basic information.</DialogDescription>
@@ -660,7 +660,7 @@ export default function UserManagement() {
       </Dialog>
 
       <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
-        <DialogContent className="max-w-2xl bg-background border border-border shadow-lg">
+        <DialogContent className="max-w-2xl admin-dialog-content">
           <DialogHeader>
             <DialogTitle>User Details</DialogTitle>
             <DialogDescription>{userDetails?.username}</DialogDescription>
@@ -677,7 +677,7 @@ export default function UserManagement() {
       </Dialog>
 
       <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
-        <DialogContent className="bg-background border border-border shadow-lg">
+        <DialogContent className="admin-dialog-content">
           <DialogHeader>
             <DialogTitle>Reset Password</DialogTitle>
             <DialogDescription>Set a new password for {selectedUser?.username}.</DialogDescription>
@@ -700,7 +700,7 @@ export default function UserManagement() {
       </Dialog>
 
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
-        <AlertDialogContent className="bg-background border border-border shadow-lg">
+        <AlertDialogContent className="admin-dialog-content">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>

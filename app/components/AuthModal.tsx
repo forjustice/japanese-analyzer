@@ -491,10 +491,10 @@ export default function AuthModal({
             <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4 transition-colors duration-200">
               {modeInfo.icon}
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2 transition-colors duration-200">
+            <h2 className="text-2xl font-bold text-foreground mb-2 transition-colors duration-200">
               {modeInfo.title}
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 transition-colors duration-200">
+            <p className="text-muted-foreground transition-colors duration-200">
               {modeInfo.description}
             </p>
           </div>
@@ -510,7 +510,7 @@ export default function AuthModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   onKeyPress={handleKeyPress}
                   placeholder="请输入邮箱地址"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
+                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out"
                   disabled={isLoading}
                   required
                 />
@@ -526,7 +526,7 @@ export default function AuthModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                   onKeyPress={handleKeyPress}
                   placeholder="用户名（可选）"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
+                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out"
                   disabled={isLoading}
                 />
               </div>
@@ -541,7 +541,7 @@ export default function AuthModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                   onKeyPress={handleKeyPress}
                   placeholder="请输入密码"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out pr-12"
+                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out pr-12"
                   disabled={isLoading}
                   required
                   autoFocus={currentMode === 'login'}
@@ -549,7 +549,7 @@ export default function AuthModal({
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none transition-colors duration-200"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none transition-colors duration-200"
                   disabled={isLoading}
                 >
                   {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -566,14 +566,14 @@ export default function AuthModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
                   onKeyPress={handleKeyPress}
                   placeholder="确认密码"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out pr-12"
+                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out pr-12"
                   disabled={isLoading}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none transition-colors duration-200"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none transition-colors duration-200"
                   disabled={isLoading}
                 >
                   {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
@@ -590,14 +590,14 @@ export default function AuthModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, newPassword: e.target.value }))}
                   onKeyPress={handleKeyPress}
                   placeholder="新密码"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out pr-12"
+                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out pr-12"
                   disabled={isLoading}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none transition-colors duration-200"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none transition-colors duration-200"
                   disabled={isLoading}
                 >
                   {showNewPassword ? <FaEyeSlash /> : <FaEye />}
@@ -620,7 +620,7 @@ export default function AuthModal({
                   }}
                   onKeyPress={handleKeyPress}
                   placeholder="请输入6位验证码"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out text-center text-2xl tracking-widest"
+                  className="w-full px-4 py-3 border border-input bg-background text-foreground rounded-lg focus:ring-2 focus:ring-ring focus:border-ring transition duration-150 ease-in-out text-center text-2xl tracking-widest"
                   disabled={isLoading}
                   required
                   maxLength={6}
@@ -632,7 +632,7 @@ export default function AuthModal({
                         <button
                           type="button"
                           onClick={handleSendCode}
-                          className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
+                          className="text-sm bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 disabled:opacity-50"
                           disabled={isLoading || !formData.email || !formData.password || !passwordStrength.isValid}
                         >
                           {isCodeSent ? '重新发送验证码' : '发送验证码'}
@@ -643,7 +643,7 @@ export default function AuthModal({
                       <button
                         type="button"
                         onClick={handleResendCode}
-                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        className="text-sm text-primary hover:underline"
                         disabled={isLoading}
                       >
                         重新发送验证码
@@ -658,7 +658,7 @@ export default function AuthModal({
             {((currentMode === 'register' && formData.password) || (currentMode === 'reset' && isCodeVerified && formData.newPassword)) && (
               <div className="text-sm">
                 <div className="flex items-center mb-1">
-                  <span className="text-gray-600 dark:text-gray-400">密码强度:</span>
+                  <span className="text-muted-foreground">密码强度:</span>
                   {passwordStrength.isValid ? (
                     <FaCheck className="ml-2 text-green-500" />
                   ) : (
@@ -697,11 +697,11 @@ export default function AuthModal({
             <button
               type="submit"
               disabled={isLoading || (currentMode === 'register' && (!formData.code || !isCodeSent))}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {isLoading ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground mr-2"></div>
                   处理中...
                 </>
               ) : (
@@ -723,21 +723,21 @@ export default function AuthModal({
             <div className="mt-6 text-center space-y-2">
               {currentMode === 'login' && (
                 <>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     还没有账户？
                     <button
                       onClick={() => handleModeChange('register')}
-                      className="ml-1 text-blue-600 dark:text-blue-400 hover:underline"
+                      className="ml-1 text-primary hover:underline"
                       disabled={isLoading}
                     >
                       立即注册
                     </button>
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     忘记密码？
                     <button
                       onClick={() => handleModeChange('reset')}
-                      className="ml-1 text-blue-600 dark:text-blue-400 hover:underline"
+                      className="ml-1 text-primary hover:underline"
                       disabled={isLoading}
                     >
                       重置密码
@@ -746,7 +746,7 @@ export default function AuthModal({
                 </>
               )}
               {currentMode === 'register' && (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   已有账户？
                   <button
                     onClick={() => handleModeChange('login')}
@@ -762,7 +762,7 @@ export default function AuthModal({
 
           {/* 底部说明 */}
           <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
+            <p className="text-xs text-muted-foreground transition-colors duration-200">
               注册即表示你同意我们的服务条款和隐私政策
             </p>
           </div>

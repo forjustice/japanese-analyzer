@@ -300,7 +300,7 @@ export default function KeyManagement() {
                     添加API密钥
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl bg-background border border-border shadow-lg">
+                <DialogContent className="max-w-2xl admin-dialog-content">
                   <DialogHeader>
                     <DialogTitle>
                       {editingKey ? '编辑API密钥' : '添加新的API密钥'}
@@ -443,7 +443,7 @@ export default function KeyManagement() {
         </div>
       )}
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
-        <AlertDialogContent className="bg-background border border-border shadow-lg">
+        <AlertDialogContent className="admin-dialog-content">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>

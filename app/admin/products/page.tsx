@@ -9,7 +9,7 @@ import {
   X,
   Check,
   AlertTriangle,
-  DollarSign,
+  Coins as RmbIcon,
   Clock,
   Coins
 } from 'lucide-react';
@@ -190,9 +190,9 @@ export default function ProductManagement() {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('zh-CN', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'CNY'
     }).format(price);
   };
 
@@ -276,7 +276,7 @@ export default function ProductManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
-                        <DollarSign className="w-4 h-4 mr-1 text-green-600 dark:text-green-400" />
+                        <span className="w-4 h-4 mr-1 text-green-600 dark:text-green-400 text-sm font-bold">¥</span>
                         {formatPrice(product.price)}
                       </div>
                     </TableCell>
@@ -333,7 +333,7 @@ export default function ProductManagement() {
 
       {/* 编辑/新增对话框 */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl bg-background border border-border shadow-lg">
+        <DialogContent className="max-w-2xl admin-dialog-content">
           <DialogHeader>
             <DialogTitle>{isEditing ? '编辑商品' : '新增商品'}</DialogTitle>
             <DialogDescription>
@@ -369,7 +369,7 @@ export default function ProductManagement() {
             
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="price" className="text-right">
-                价格 ($) *
+                价格 (¥) *
               </Label>
               <Input
                 id="price"
@@ -459,7 +459,7 @@ export default function ProductManagement() {
 
       {/* 删除确认对话框 */}
       <Dialog open={deleteConfirm.open} onOpenChange={(open) => setDeleteConfirm({ open, product: null })}>
-        <DialogContent className="bg-background border border-border shadow-lg">
+        <DialogContent className="admin-dialog-content">
           <DialogHeader>
             <DialogTitle>确认删除</DialogTitle>
             <DialogDescription>

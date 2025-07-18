@@ -929,6 +929,41 @@ html.safari #japaneseInput {
   }
 }
 
+/* 设置下拉菜单样式增强 */
+.settings-dropdown .absolute {
+  /* 基础样式 */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  /* 深色模式下更强的背景 */
+  background-color: hsl(var(--card) / 0.95);
+  /* 更强的阴影 */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.dark .settings-dropdown .absolute {
+  /* 深色模式下更强的阴影和背景 */
+  background-color: hsl(var(--card) / 0.98);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.2);
+  border-color: hsl(var(--border) / 0.8);
+}
+
+@media (max-width: 640px) {
+  .settings-dropdown .absolute {
+    /* 移动端更强的背景和阴影 */
+    background-color: hsl(var(--card) / 0.98);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2), 0 6px 15px rgba(0, 0, 0, 0.15);
+    border-width: 2px;
+  }
+  
+  .dark .settings-dropdown .absolute {
+    /* 深色模式移动端 */
+    background-color: hsl(var(--card) / 0.99);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 0 6px 15px rgba(0, 0, 0, 0.3);
+  }
+}
+
 /* 主题切换下拉菜单定位 */
 #themeToggleDropdown {
   position: fixed;
@@ -983,6 +1018,21 @@ audio {
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--foreground));
+}
+
+/* 管理后台弹窗增强样式 */
+.admin-dialog-content {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.dark .admin-dialog-content {
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(148, 163, 184, 0.2);
 }
 
 /* 确保在所有模式下，所有文本都有平滑过渡效果 */

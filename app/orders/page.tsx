@@ -32,7 +32,7 @@ export default function OrdersPage() {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       if (!token) {
         setError('请先登录');
         setLoading(false);
@@ -61,7 +61,7 @@ export default function OrdersPage() {
 
   const handleRetryPayment = async (orderId: number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       if (!token) {
         alert('请先登录');
         return;

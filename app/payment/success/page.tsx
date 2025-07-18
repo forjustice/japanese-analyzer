@@ -14,7 +14,7 @@ function PaymentSuccessContent() {
 
   const fetchOrderInfo = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
       if (!token) {
         setError('请先登录');
         setLoading(false);
@@ -51,9 +51,9 @@ function PaymentSuccessContent() {
   }, [orderNo, fetchOrderInfo]);
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('zh-CN', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'CNY'
     }).format(price);
   };
 

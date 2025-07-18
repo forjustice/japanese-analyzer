@@ -68,9 +68,9 @@ export default function OrderManagement() {
   }, [fetchOrders]);
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('zh-CN', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'CNY'
     }).format(price);
   };
 
