@@ -9,7 +9,6 @@ import {
   X,
   Check,
   AlertTriangle,
-  Coins as RmbIcon,
   Clock,
   Coins
 } from 'lucide-react';
