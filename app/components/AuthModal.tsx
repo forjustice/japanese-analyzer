@@ -54,6 +54,28 @@ export default function AuthModal({
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      
+      // 强制检查主题状态，确保AuthModal在正确的主题下显示
+      const forceThemeCheck = () => {
+        const root = document.documentElement;
+        
+        // 确保主题类正确应用
+        if (!root.classList.contains('dark') && !root.classList.contains('light')) {
+          const userTheme = localStorage.getItem('userTheme') || 'system';
+          if (userTheme === 'system') {
+            const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            root.classList.add(systemDark ? 'dark' : 'light');
+          } else {
+            root.classList.add(userTheme);
+          }
+        }
+      };
+      
+      // 立即检查主题
+      forceThemeCheck();
+      
+      // 延迟再次检查，确保在生产环境中也能正确应用
+      setTimeout(forceThemeCheck, 50);
     } else {
       document.body.style.overflow = 'unset';
     }

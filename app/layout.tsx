@@ -69,6 +69,9 @@ export default function RootLayout({
             const actualTheme = getActualTheme(theme);
             document.documentElement.classList.remove('light', 'dark');
             document.documentElement.classList.add(actualTheme);
+            
+            // 确保AuthModal能够正确获取主题状态
+            window.__THEME_INITIALIZED__ = true;
           })();
         `}} />
         {/* Safari输入修复脚本 */}

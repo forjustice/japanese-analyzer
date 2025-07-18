@@ -54,7 +54,17 @@ export default function Home() {
     // 初始化用户端主题设置
     const savedUserTheme = localStorage.getItem('userTheme') as 'light' | 'dark' | 'system' || 'system';
     setUserTheme(savedUserTheme);
-    applyUserTheme(savedUserTheme);
+    
+    // 强制确保主题应用，特别是在生产环境中
+    const forceApplyTheme = () => {
+      applyUserTheme(savedUserTheme);
+    };
+    
+    // 立即应用主题
+    forceApplyTheme();
+    
+    // 延迟再次应用，确保所有CSS都加载完成
+    setTimeout(forceApplyTheme, 100);
     
     const checkTheme = () => {
       const isDark = document.documentElement.classList.contains('dark');
